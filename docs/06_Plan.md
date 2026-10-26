@@ -1,0 +1,93 @@
+# 06_Plan — Implementation Checklist
+
+**Rule:** do tasks strictly in order. After each task: run `npm run check` (tsc + eslint + jest), **make one git commit** (`task <id>: <summary>`), tick the box, add a one-line note under **Progress Log**, then stop and report. Never start a task whose dependency is unticked.
+Mark blocked items `[!]` with the reason.
+**Timeline:** 12 weeks at ~8–10 h/week, thesis deadlines take priority. Phase 5 is the first thing to cut if time runs short.
+
+## Phase 0 — Environment & Skeleton
+- [x] 0.1 `npx create-expo-app` (TypeScript template), New Architecture on, set bundle id, add `docs/`, `CLAUDE.md`, `.cursorrules`, `.gitignore` (must include `eval/`, `*.tflite` only if licence forbids redistribution)
+- [ ] 0.2 Install deps from 04_TRD via `npx expo install`; record versions in `package.json`
+- [ ] 0.3 ESLint, Prettier, strict TS, jest-expo; `npm run check`
+- [ ] 0.4 `src/theme/tokens.ts` from 03_UI_Spec + `useTheme` hook with tests
+- [ ] 0.5 `CADisableMinimumFrameDurationOnPhone` + photo permission strings in `app.json`
+- [ ] 0.6 Public GitHub repo + `.github/workflows/ios-build.yml` (macos-latest, unsigned IPA artifact); sideload with Sideloadly/SideStore + free Apple ID; dev-client loads JS from PC Metro (TRD §2)
+
+## Phase 0.5 — Risk Spike (GO / NO-GO before any real UI)
+Goal: prove the face pipeline works on the real iPhone with real photos. No DB, no polish.
+- [ ] S.1 Resolve D-5: pick BlazeFace + MobileFaceNet model files that are free to bundle; record source + licence in `docs/04_TRD.md`; add to `assets/models/`
+- [ ] S.2 Debug screen: pick 20 photos from library → BlazeFace → draw boxes. Pure TS `domain/blazeface.ts` (letterbox, anchors, decode, NMS) with unit tests
+- [ ] S.3 Add MobileFaceNet embeddings + simple clustering on 50–100 of the developer's own photos; debug screen lists clusters with face crops
+- [ ] S.4 **GATE.** Record in Progress Log: pairwise precision, scan speed (photos/s), peak memory. PASS if precision ≥ 85 %, ≥ 2 photos/s, peak RAM < 400 MB, no crashes. If FAIL: stop and decide (tune threshold, swap model, reduce scope) — do not continue to Phase 1
+
+## Phase 1 — Database & Permissions
+- [ ] 1.1 `src/db/client.ts`: open DB, WAL, foreign keys
+- [ ] 1.2 Migration runner + `001_init` (all tables/indexes from 05_Schema)
+- [ ] 1.3 Repositories: trips, photos, people, faces, exports, settings (+ unit tests, in-memory DB)
+- [ ] 1.4 Exclude DB from backup and verify
+- [ ] 1.5 `services/library.ts`: permission (full/limited/denied) + status hook
+- [ ] 1.6 Incremental library sync (batches of 500); tests with mocked media library
+- [ ] 1.7 Orphan temp export sweep at launch
+
+## Phase 2 — Core Engines (debug screens only)
+- [ ] 2.1 `domain/tripDetection.ts`: **time-gap rule only** (12 h gap, ≥ 15 photos, ≥ 3 h span); tests: gaps, midnight, single-photo days. GPS "away from home" is v2, do not build
+- [ ] 2.2 Persist trips, assign `photos.trip_id`, preserve `is_user_edited` trips on re-detect
+- [ ] 2.3 Promote spike code: `services/faceScan.ts` — sequential scan (concurrency 2), resume, cancel, pause on background, memory-safe, writes `faces`
+- [ ] 2.4 Face quality filter `domain/faceQuality.ts`: min size, detector confidence, blur (Laplacian variance on crop), extreme pose via landmarks; low-quality faces stored with `quality_ok=0` and excluded from clustering/centroids; thresholds in `config.ts`
+- [ ] 2.5 `domain/clustering.ts`: average-linkage on cosine distance (`CLUSTER_DISTANCE` from config); persist `people` + `faces.person_id`; tests
+- [ ] 2.6 **Name-first assignment** `domain/assignment.ts`: when a person is named/confirmed, compute centroid from its quality faces (`people.centroid`), re-assign remaining `auto` faces to nearest centroid if distance < `ASSIGN_DISTANCE`, else leave in Others; `manual` (pinned) faces never touched; tests
+- [ ] 2.7 Manual edits (transactional): move face, merge people, remove from person → all set `assignment='manual'`; recompute centroids; tests
+- [ ] 2.8 `services/exporter.ts` with two modes: **photos** (≤ 30 photos → copy to temp → multi-file share) and **zip** (`react-native-zip-archive`); option `soloOnly` (faces count = 1 in photo) vs include group photos; temp cleanup on every exit path
+- [ ] 2.9 Free-tier gate (50 scanned/trip) + `is_pro` behind feature flag (default OFF = everything unlocked); purchases stub only
+- [ ] 2.10 **Eval harness** (local only, never committed): `eval/` folder (gitignored) with ground-truth labels for 100–200 own photos; Node/jest script prints pairwise precision/recall/F1 for `CLUSTER_DISTANCE`, `ASSIGN_DISTANCE`, quality thresholds; tune and write the chosen values + scores into `config.ts` comments and Progress Log
+- [ ] 2.11 Benchmark 300-photo trip: scan time + peak memory; record results
+
+## Phase 3 — UI Integration (core loop first: trip → scan → name → export)
+- [ ] 3.1 Base components: Button, TextField, Banner, EmptyState, Skeleton, ProgressRing (all states, 03_UI_Spec)
+- [ ] 3.2 Root layout, theme provider, error boundary, fonts
+- [ ] 3.3 Onboarding + Permission Denied view
+- [ ] 3.4 Home (Trips): FlashList, empty/loading/error
+- [ ] 3.5 Trip Detail: photo grid, rename, adjust dates, merge, hide
+- [ ] 3.6 Scan Progress modal (progress, cancel, resume, keep-awake)
+- [ ] 3.7 People screen (plain grid) + naming flow: tap bubble → pick a clear face → name → app re-assigns others (2.6), shows "n photos added"
+- [ ] 3.8 Person Detail: name validation, multi-select, move/remove/exclude, merge
+- [ ] 3.9 Export Review: per-person mode toggle (Photos ≤ 30 / ZIP), solo-only toggle, size warnings, batch queue, share
+- [ ] 3.10 Paywall UI + restore button, hidden behind feature flag
+- [ ] 3.11 Settings (permissions, re-sync, reset data, privacy text)
+- [ ] **CHECKPOINT:** full loop works end-to-end on the developer's own iPhone with a real trip. Developer sends the exported photos/ZIPs to 2–3 friends (they only receive, no install) and records their feedback before starting Phase 5
+
+## Phase 4 — Edge-Case Tests
+- [ ] 4.1 Permission: limited access, revoked mid-scan, denied → settings → return
+- [ ] 4.2 iCloud-only photos skipped with notice
+- [ ] 4.3 Photo deleted between scan and export
+- [ ] 4.4 App killed mid-scan → resume, no duplicate faces
+- [ ] 4.5 Low storage; share cancelled; temp files deleted on all paths
+- [ ] 4.6 1 000+ photo trip: memory + scroll fps
+- [ ] 4.7 Duplicate/invalid/long/emoji person names
+- [ ] 4.8 No-face photos, 15+ face group photos, sunglasses, side profiles; record precision/recall vs PRD targets
+- [ ] 4.9 Dark/light, Dynamic Type 130 %, Reduce Motion
+- [ ] 4.10 Reset data → clean state
+
+## Phase 5 — Antigravity & Polish (cut first if late)
+- [ ] 5.1 Floating `PersonBubble` (Reanimated worklets, Skia if needed), cap 24 animated
+- [ ] 5.2 Drag-to-merge gesture, haptics
+- [ ] 5.3 Profile on device: 110+ fps on ProMotion or fall back to static
+- [ ] 5.4 Reduce Motion fallback
+
+## Phase 6 — Friends Beta (sideload only, $0)
+- [ ] 6.1 Resolve D-3 (app name)
+- [ ] 6.2 Icon, splash, README with sideload steps (Sideloadly/SideStore, 7-day re-sign)
+- [ ] 6.3 Test with friends: they receive exports from the developer's phone (no install needed); friends who have a computer may sideload the IPA. Collect PRD §6 metrics on the developer's phone and ask friends: quality ok? photos correct? would you use it again? Get friends' OK before using their faces in eval/
+- [ ] 6.4 Fix top issues; tag GitHub release
+- [ ] 6.5 *(Only if budget ever changes)* paid store accounts, StoreKit, store listing
+
+## Phase 7 — Impact (after Phase 6; each item optional, in this order)
+- [ ] 7.1 **Event stress test:** run the app on one real big event (class tour, picnic, wedding, convocation) with 150–500 photos and 15+ people; record precision/recall, scan time, how many exports were sent, organizer time saved vs manual. Get consent from people whose faces appear in any saved results
+- [ ] 7.2 Tune thresholds on the event data (eval harness, task 2.10); update `config.ts` + Progress Log
+- [ ] 7.3 Public README: demo GIF, how it works, privacy statement, sideload steps, eval table (precision/recall vs threshold, speed, memory). No personal photos or faces in the repo or GIF without consent
+- [ ] 7.4 Write-up (blog/LinkedIn): on-device face clustering with no cloud, real numbers from 7.1/7.2
+- [ ] 7.5 Bangla UI strings: move all copy to `src/i18n/` (`en`, `bn`), device-language switch, Bangla copy review by a native reader
+- [ ] 7.6 *(Optional)* Web port feasibility spike: reuse `src/domain/*` (pure TS), browser face detection/embedding (WASM/ONNX), photo picker + EXIF dates, free hosting on GitHub Pages; decide go/no-go and record in Progress Log
+
+## Progress Log
+<!-- Format: YYYY-MM-DD | task id | note -->
+2026-10-27 | 0.1 | Initialized Expo SDK 54 TypeScript template, New Arch enabled, bundle id configured, docs/ moved, .cursorrules & .gitignore with eval/ created

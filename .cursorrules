@@ -1,0 +1,25 @@
+# Trip Photo Sorter — Cursor Rules
+
+Project: on-device iOS-first React Native (Expo SDK 54, TypeScript strict) app. No backend, accounts, or uploads.
+
+## Always
+1. Before any task, read /docs/01_PRD.md, 02_AppFlow.md, 03_UI_Spec.md, 04_TRD.md, 05_Schema.md, 06_Plan.md.
+2. Do only the first unticked task in docs/06_Plan.md. No skipping, no batching.
+3. Run `npm run check` (tsc + eslint + jest), fix failures, then make one git commit `task <id>: <summary>`.
+4. After each completed step, update docs/06_Plan.md: tick the box and append to Progress Log (date | task id | note). Mark blocked tasks [!] with a reason.
+5. Stop and summarise; list anything the user must test on device or decide.
+
+## Constraints
+- Public repo: never commit photos, face crops, embeddings, or eval labels (`eval/` is gitignored).
+- Spike gate S.4 must pass before Phase 1+. If it fails, stop and report.
+- $0 budget: never add or suggest anything that costs money. If needed, stop and ask.
+- Docs override assumptions. On any conflict, stop and ask; update the doc first.
+- Do not add libraries or change versions outside docs/04_TRD.md. Respect PRD §7 Non-Goals.
+- No network calls with photo/face data. fetch/axios only in src/services/purchases.ts.
+- Gallery is read-only. Never edit or delete user photos.
+- SQL only in src/db/repositories. Schema change = new migration + update docs/05_Schema.md.
+- Use tokens from src/theme/tokens.ts; no hard-coded colours/sizes/fonts.
+- Keep app/ routes thin; logic in src/services and src/domain (pure, tested).
+- No `any` without a comment. Delete temp ZIPs on every exit path. Never log embeddings.
+- Install packages with `npx expo install`.
+- Native module changes need a new GitHub Actions iOS build + Sideloadly install — tell the user.
