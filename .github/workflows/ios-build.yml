@@ -29,7 +29,12 @@ jobs:
         run: npm ci
 
       - name: Prebuild iOS project
-        run: npx expo prebuild --platform ios
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
 
       - name: Build Xcode Archive (Code Signing Disabled)
         run: |
@@ -41,6 +46,7 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Release \
             -archivePath build/TripPhotoSorter.xcarchive \
+            -destination 'generic/platform=iOS' \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
