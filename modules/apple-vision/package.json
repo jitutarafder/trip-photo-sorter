@@ -1,0 +1,10 @@
+{
+  "name": "apple-vision",
+  "version": "0.1.0",
+  "description": "Apple Vision face detection module for iOS",
+  "main": "index.ts",
+  "types": "index.ts",
+  "expo": {
+    "label": "AppleVision"
+  }
+}

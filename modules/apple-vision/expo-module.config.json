@@ -1,0 +1,7 @@
+{
+  "name": "apple-vision",
+  "platforms": ["ios"],
+  "ios": {
+    "modules": ["AppleVisionModule"]
+  }
+}

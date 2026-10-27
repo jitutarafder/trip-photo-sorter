@@ -99,3 +99,4 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-27 | S.1 | Resolved D-5: downloaded MediaPipe BlazeFace (Apache 2.0) and MobileFaceNet (Apache 2.0/MIT) into assets/models/, documented in 04_TRD.md
 2026-10-27 | S.2 | Pure TS BlazeFace decode, anchors, letterbox, NMS in src/domain/blazeface.ts with unit tests; debug screen in App.tsx with photo picker, overlay boxes & telemetry
 2026-10-27 | S.3 | Pure TS clustering & face crop math with unit tests; debug screen in App.tsx with 50-100 photo loader, BlazeFace + MobileFaceNet pipeline & face cluster list
+2026-10-28 | S.3 | Added native Apple Vision local Expo module (modules/apple-vision) for full-res hardware face detection on Apple Neural Engine with BlazeFace fallback; updated App.tsx and 04_TRD.md

@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as MediaLibrary from 'expo-media-library';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useTensorflowModel } from 'react-native-fast-tflite';
+import { detectFacesWithAppleVision, isAppleVisionAvailable } from 'apple-vision';
 import { darkColors } from './src/theme/tokens';
 import { CONFIG } from './src/domain/config';
 import {
@@ -46,6 +47,122 @@ interface ScannedFace {
   cropUri: string;
   embedding: Float32Array;
   bbox: { x: number; y: number; width: number; height: number };
+}
+
+interface TFLiteModelRunner {
+  run: (buffers: ArrayBuffer[]) => Promise<ArrayBuffer[]>;
+}
+
+async function detectFacesForPhoto(
+  photo: PhotoItem,
+  blazefaceModel: TFLiteModelRunner | null | undefined,
+): Promise<{ detections: FaceDetection[]; peakConfidence: number }> {
+  // Primary on iOS: Apple Vision (hardware-accelerated VNDetectFaceRectanglesRequest)
+  if (isAppleVisionAvailable()) {
+    try {
+      const visionFaces = await detectFacesWithAppleVision(photo.uri);
+      if (visionFaces && visionFaces.length > 0) {
+        let peakConf = 0;
+        const detections: FaceDetection[] = visionFaces.map((vf) => {
+          if (vf.confidence > peakConf) peakConf = vf.confidence;
+          return {
+            x: vf.x,
+            y: vf.y,
+            width: vf.width,
+            height: vf.height,
+            score: vf.confidence,
+            keypoints: [],
+          };
+        });
+        return { detections, peakConfidence: peakConf };
+      }
+    } catch (e) {
+      console.warn('[AppleVision] Error detecting faces:', e);
+    }
+  }
+
+  // Fallback: BlazeFace short-range TFLite
+  if (!blazefaceModel) {
+    return { detections: [], peakConfidence: 0 };
+  }
+
+  const letterbox = calculateLetterbox(
+    photo.width,
+    photo.height,
+    CONFIG.BLAZEFACE_INPUT_SIZE,
+  );
+
+  const manipulated = await ImageManipulator.manipulateAsync(
+    photo.uri,
+    [
+      {
+        resize: {
+          width: Math.round(letterbox.scaledWidth),
+          height: Math.round(letterbox.scaledHeight),
+        },
+      },
+    ],
+    { format: ImageManipulator.SaveFormat.JPEG, base64: true },
+  );
+
+  if (!manipulated.base64) {
+    return { detections: [], peakConfidence: 0 };
+  }
+
+  const sW = Math.round(letterbox.scaledWidth);
+  const sH = Math.round(letterbox.scaledHeight);
+  const rawPixels = base64ToRgbTensor(manipulated.base64, sW, sH, 127.5, 127.5);
+  if (!rawPixels) {
+    return { detections: [], peakConfidence: 0 };
+  }
+
+  const bfInput = new Float32Array(1 * 128 * 128 * 3);
+  const padX = Math.round(letterbox.padX);
+  const padY = Math.round(letterbox.padY);
+  for (let y = 0; y < sH; y++) {
+    for (let x = 0; x < sW; x++) {
+      const dstY = y + padY;
+      const dstX = x + padX;
+      if (dstY >= 0 && dstY < 128 && dstX >= 0 && dstX < 128) {
+        const srcIdx = (y * sW + x) * 3;
+        const dstIdx = (dstY * 128 + dstX) * 3;
+        bfInput[dstIdx + 0] = rawPixels[srcIdx + 0];
+        bfInput[dstIdx + 1] = rawPixels[srcIdx + 1];
+        bfInput[dstIdx + 2] = rawPixels[srcIdx + 2];
+      }
+    }
+  }
+
+  const bfOutput = await blazefaceModel.run([bfInput.buffer as ArrayBuffer]);
+  const out0 = new Float32Array(bfOutput[0]);
+  const out1 = new Float32Array(bfOutput[1]);
+  const rawBoxes = out0.length > out1.length ? out0 : out1;
+  const rawScores = out0.length > out1.length ? out1 : out0;
+
+  let peakConfidence = 0;
+  for (let i = 0; i < rawScores.length; i++) {
+    const sig = 1 / (1 + Math.exp(-rawScores[i]));
+    if (sig > peakConfidence) peakConfidence = sig;
+  }
+
+  const rawDetections = decodeDetections(
+    rawBoxes,
+    rawScores,
+    undefined,
+    CONFIG.BLAZEFACE_SCORE_THRESHOLD,
+  );
+  const nmsDetections = nonMaxSuppression(rawDetections, CONFIG.BLAZEFACE_IOU_THRESHOLD);
+  const mappedDetections = nmsDetections.map((d) =>
+    unletterboxDetection(d, letterbox, photo.width, photo.height),
+  );
+  const validDetections = filterMinFaceSize(
+    mappedDetections,
+    photo.width,
+    photo.height,
+    CONFIG.MIN_FACE_SIZE,
+  );
+
+  return { detections: validDetections, peakConfidence };
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -164,81 +281,11 @@ export default function App() {
         const photo = photos[i];
         setProgressText(`Processing photo ${i + 1}/${photos.length} (${totalFacesDetected} faces)...`);
 
-        // Step 1: Preprocess to 128x128 for BlazeFace
-        const letterbox = calculateLetterbox(
-          photo.width,
-          photo.height,
-          CONFIG.BLAZEFACE_INPUT_SIZE,
+        // Step 1: Detect faces (Apple Vision on iOS or BlazeFace fallback)
+        const { detections: validDetections } = await detectFacesForPhoto(
+          photo,
+          blazeface.model,
         );
-
-        const manipulated = await ImageManipulator.manipulateAsync(
-          photo.uri,
-          [
-            {
-              resize: {
-                width: Math.round(letterbox.scaledWidth),
-                height: Math.round(letterbox.scaledHeight),
-              },
-            },
-          ],
-          { format: ImageManipulator.SaveFormat.JPEG, base64: true },
-        );
-
-        if (!manipulated.base64) {
-          continue;
-        }
-
-        const sW = Math.round(letterbox.scaledWidth);
-        const sH = Math.round(letterbox.scaledHeight);
-        const rawPixels = base64ToRgbTensor(manipulated.base64, sW, sH, 127.5, 127.5);
-        if (!rawPixels) {
-          continue;
-        }
-
-        // Place scaled image into 128x128 letterbox buffer centered at (padX, padY)
-        const bfInput = new Float32Array(1 * 128 * 128 * 3);
-        const padX = Math.round(letterbox.padX);
-        const padY = Math.round(letterbox.padY);
-
-        for (let y = 0; y < sH; y++) {
-          for (let x = 0; x < sW; x++) {
-            const dstY = y + padY;
-            const dstX = x + padX;
-            if (dstY >= 0 && dstY < 128 && dstX >= 0 && dstX < 128) {
-              const srcIdx = (y * sW + x) * 3;
-              const dstIdx = (dstY * 128 + dstX) * 3;
-              bfInput[dstIdx + 0] = rawPixels[srcIdx + 0];
-              bfInput[dstIdx + 1] = rawPixels[srcIdx + 1];
-              bfInput[dstIdx + 2] = rawPixels[srcIdx + 2];
-            }
-          }
-        }
-
-        // Step 2: BlazeFace detection
-        const bfOutput = await blazeface.model.run([bfInput.buffer as ArrayBuffer]);
-        const out0 = new Float32Array(bfOutput[0]);
-        const out1 = new Float32Array(bfOutput[1]);
-        // Regressors have 14,336 elements (896 * 16), classificators have 896 elements
-        const rawBoxes = out0.length > out1.length ? out0 : out1;
-        const rawScores = out0.length > out1.length ? out1 : out0;
-
-        const rawDetections = decodeDetections(
-          rawBoxes,
-          rawScores,
-          undefined,
-          CONFIG.BLAZEFACE_SCORE_THRESHOLD,
-        );
-        const nmsDetections = nonMaxSuppression(rawDetections, CONFIG.BLAZEFACE_IOU_THRESHOLD);
-        const mappedDetections = nmsDetections.map((d) =>
-          unletterboxDetection(d, letterbox, photo.width, photo.height),
-        );
-        const validDetections = filterMinFaceSize(
-          mappedDetections,
-          photo.width,
-          photo.height,
-          CONFIG.MIN_FACE_SIZE,
-        );
-
         detectionsMap.set(photo.id, validDetections);
 
         // Step 3: Extract face crops and MobileFaceNet embeddings
@@ -341,83 +388,12 @@ export default function App() {
     if (!selectedPhoto) {
       return;
     }
-    if (!blazeface.model) {
-      setStatusMessage('BlazeFace model not ready.');
-      return;
-    }
 
     try {
       setStatusMessage(`Detecting faces on Photo #${selectedIndex + 1}...`);
-      const letterbox = calculateLetterbox(
-        selectedPhoto.width,
-        selectedPhoto.height,
-        CONFIG.BLAZEFACE_INPUT_SIZE,
-      );
-
-      const manipulated = await ImageManipulator.manipulateAsync(
-        selectedPhoto.uri,
-        [
-          {
-            resize: {
-              width: Math.round(letterbox.scaledWidth),
-              height: Math.round(letterbox.scaledHeight),
-            },
-          },
-        ],
-        { format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      );
-
-      if (!manipulated.base64) {
-        setStatusMessage('Error: ImageManipulator produced no base64.');
-        return;
-      }
-
-      const sW = Math.round(letterbox.scaledWidth);
-      const sH = Math.round(letterbox.scaledHeight);
-      const rawPixels = base64ToRgbTensor(manipulated.base64, sW, sH, 127.5, 127.5);
-      if (!rawPixels) {
-        setStatusMessage('Error: Skia base64ToRgbTensor returned null.');
-        return;
-      }
-
-      const bfInput = new Float32Array(1 * 128 * 128 * 3);
-      const padX = Math.round(letterbox.padX);
-      const padY = Math.round(letterbox.padY);
-      for (let y = 0; y < sH; y++) {
-        for (let x = 0; x < sW; x++) {
-          const dstY = y + padY;
-          const dstX = x + padX;
-          if (dstY >= 0 && dstY < 128 && dstX >= 0 && dstX < 128) {
-            const srcIdx = (y * sW + x) * 3;
-            const dstIdx = (dstY * 128 + dstX) * 3;
-            bfInput[dstIdx + 0] = rawPixels[srcIdx + 0];
-            bfInput[dstIdx + 1] = rawPixels[srcIdx + 1];
-            bfInput[dstIdx + 2] = rawPixels[srcIdx + 2];
-          }
-        }
-      }
-
-      const bfOutput = await blazeface.model.run([bfInput.buffer as ArrayBuffer]);
-      const out0 = new Float32Array(bfOutput[0]);
-      const out1 = new Float32Array(bfOutput[1]);
-      const rawBoxes = out0.length > out1.length ? out0 : out1;
-      const rawScores = out0.length > out1.length ? out1 : out0;
-
-      let maxSig = 0;
-      for (let i = 0; i < rawScores.length; i++) {
-        const sig = 1 / (1 + Math.exp(-rawScores[i]));
-        if (sig > maxSig) maxSig = sig;
-      }
-
-      const rawDetections = decodeDetections(
-        rawBoxes,
-        rawScores,
-        undefined,
-        0.5,
-      );
-      const nmsDetections = nonMaxSuppression(rawDetections, CONFIG.BLAZEFACE_IOU_THRESHOLD);
-      const mappedDetections = nmsDetections.map((d) =>
-        unletterboxDetection(d, letterbox, selectedPhoto.width, selectedPhoto.height),
+      const { detections: mappedDetections, peakConfidence } = await detectFacesForPhoto(
+        selectedPhoto,
+        blazeface.model,
       );
 
       const nextMap = new Map(photoDetections);
@@ -425,7 +401,7 @@ export default function App() {
       setPhotoDetections(nextMap);
 
       setStatusMessage(
-        `Photo #${selectedIndex + 1}: Found ${mappedDetections.length} face(s) | Peak confidence: ${(maxSig * 100).toFixed(1)}%`,
+        `Photo #${selectedIndex + 1}: Found ${mappedDetections.length} face(s) | Peak confidence: ${(peakConfidence * 100).toFixed(1)}%`,
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -452,7 +428,7 @@ export default function App() {
       <View style={styles.header}>
         <Text style={styles.title}>Face Spike (Task S.3)</Text>
         <Text style={styles.subtitle}>
-          BlazeFace: {blazeface.state} | MobileFaceNet: {mobilefacenet.state}
+          Detector: {isAppleVisionAvailable() ? 'Apple Vision (ANE)' : 'BlazeFace'} | MobileFaceNet: {mobilefacenet.state}
         </Text>
       </View>
 

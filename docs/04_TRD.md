@@ -19,7 +19,7 @@
 | ZIP | react-native-zip-archive | 7.x | Native zipping, streams from disk (do NOT use JSZip — loads files into JS memory) |
 | Sharing | expo-sharing (single ZIP) + react-native-share (multiple photo files) | ~14 / latest | Free/MIT. **Verify multi-file share works on iOS dev build in task 2.8**; if not, fall back to ZIP only |
 | Image crops | expo-image-manipulator | ~14 | Face crop → model input |
-| Face detection | **BlazeFace short-range (TFLite)** via `react-native-fast-tflite` | 1.x | 128×128 input; anchor decoding + NMS written in TypeScript (`src/domain/blazeface.ts`, unit-tested). No custom native code |
+| Face detection | **Apple Vision (`VNDetectFaceRectanglesRequest`)** via local Expo module `modules/apple-vision` | iOS 16+ | Hardware-accelerated on Apple Neural Engine; detects distant, small, and group faces at full image resolution. Fallback/Android: BlazeFace TFLite |
 | Face embedding | **MobileFaceNet (TFLite, 128-d)** via `react-native-fast-tflite` | 1.x | CoreML delegate on iOS. Model file bundled in `assets/models/` |
 | State (UI) | zustand | 5.x | UI state only; data lives in SQLite |
 | Purchases | *(deferred — needs paid store account)* | — | Pro tier is feature-flagged off in MVP; see PRD |
@@ -31,7 +31,7 @@
 | Early idea | Problem | Decision |
 |-----------|---------|----------|
 | Run via Expo Go | Native modules (TFLite, zip) don't run in Expo Go | Use a **dev-client build** made by GitHub Actions and sideloaded |
-| "Apple Vision does face grouping" | Vision gives **no identity embedding**, and a custom Swift module is painful to debug without a Mac (10–20 min CI build per try) | BlazeFace (TFLite) for detection, MobileFaceNet for embeddings, our own clustering; zero custom native code |
+| BlazeFace 128×128 only | Low resolution misses small/distant faces in wide-angle group shots (tested on real iPhone photos: 0 faces found on group photo #49) | **Apple Vision (`VNDetectFaceRectanglesRequest`)** local Expo module for detection; MobileFaceNet for 128-d embeddings; our own pure TS clustering |
 | Zip with expo-file-system | It has no zip API | `react-native-zip-archive` |
 | Matter.js bubbles | Physics runs on JS thread → drops frames, conflicts with 120 Hz goal | Reanimated worklets (+ Skia) with simple drift/spring math |
 | TestFlight at $0 | TestFlight requires the $99 Apple Developer Program | GitHub Actions unsigned IPA + Sideloadly with free Apple ID (7-day re-sign) |
@@ -92,13 +92,13 @@ Rules: routes import from `src/`; `src/domain` imports nothing from React/Expo (
 - Name: "Trip · {Mon D–D, YYYY}" until the user renames.
 
 **Face pipeline per photo**
-1. Load a downscaled image (max 1280 px long edge) — never full-res.
-2. BlazeFace detect (letterbox to 128×128, decode anchors, NMS) → drop faces with short edge < **48 px** or confidence < **0.6**.
-3. Crop with 20 % margin, resize 112×112, normalise, run MobileFaceNet → 128-d L2-normalised vector.
+1. Load image (file URI or downscaled asset).
+2. Apple Vision detect (`VNDetectFaceRectanglesRequest` on iOS / BlazeFace fallback) → returns normalized bounding boxes `[x, y, w, h]`, confidence, yaw, roll.
+3. Crop face with 20% margin, resize to 112×112, normalise, run MobileFaceNet → 128-d L2-normalised vector.
 4. Save to `faces`. Process **sequentially with concurrency 2**; release image buffers each iteration.
 
 **Face quality filter** (before clustering and centroids)
-- Reject faces with short edge < 48 px, detector confidence < 0.6, blur score (Laplacian variance of the grey crop) below `BLUR_MIN`, or extreme yaw (from BlazeFace keypoints) above `YAW_MAX`. Store them with `quality_ok = 0`; they can still be assigned to a person by nearest centroid but never form or move a centroid.
+- Reject faces with short edge < 28 px, detector confidence < 0.5, blur score (Laplacian variance of the grey crop) below `BLUR_MIN`, or extreme yaw above `YAW_MAX`. Store them with `quality_ok = 0`; they can still be assigned to a person by nearest centroid but never form or move a centroid.
 
 **Clustering**
 - Agglomerative (average linkage) on cosine distance, threshold `CLUSTER_DISTANCE` (starting guess 0.45), over `quality_ok = 1` faces only, in batches.
