@@ -132,9 +132,9 @@ Rules: routes import from `src/`; `src/domain` imports nothing from React/Expo (
 None. (Purchase APIs deferred until a paid store account exists.)
 
 ## 8. Open Decisions
-| # | Question | Default |
-|---|----------|---------|
-| D-5 | Confirm BlazeFace + MobileFaceNet licence/model source (must be free to bundle) | Must be resolved in spike task S.1 |
+| # | Question | Decision / Status |
+|---|----------|-------------------|
+| D-5 | Confirm BlazeFace + MobileFaceNet licence/model source | **Resolved in Task S.1**:<br>• **BlazeFace (short-range)**: Google MediaPipe (`face_detection_short_range.tflite`), Apache 2.0 License. Stored at `assets/models/blazeface.tflite`.<br>• **MobileFaceNet (128-d)**: MobileFaceNet (`mobilefacenet.tflite`), Apache 2.0 / MIT License. Stored at `assets/models/mobilefacenet.tflite`. Both models are permissive and free to bundle. |
 
 ## 9. Quality Gates
 `tsc --noEmit`, `eslint`, `jest` must pass before any step in `06_Plan.md` is ticked.
