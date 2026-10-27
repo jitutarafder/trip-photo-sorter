@@ -134,11 +134,11 @@ export function decodeDetections(
     const anchor = anchors[i];
     const offset = i * 16;
 
-    // Regressor offsets (scaled by 128)
-    const dx = rawBoxes[offset];
-    const dy = rawBoxes[offset + 1];
-    const dw = rawBoxes[offset + 2];
-    const dh = rawBoxes[offset + 3];
+    // TFLite SSD box format: [y_center, x_center, height, width]
+    const dy = rawBoxes[offset];
+    const dx = rawBoxes[offset + 1];
+    const dh = rawBoxes[offset + 2];
+    const dw = rawBoxes[offset + 3];
 
     const cx = anchor.xCenter + (dx / 128) * anchor.width;
     const cy = anchor.yCenter + (dy / 128) * anchor.height;
@@ -151,8 +151,8 @@ export function decodeDetections(
     const keypoints: Keypoint[] = [];
     for (let k = 0; k < 6; k++) {
       const kpOffset = offset + 4 + k * 2;
-      const kpx = anchor.xCenter + (rawBoxes[kpOffset] / 128) * anchor.width;
-      const kpy = anchor.yCenter + (rawBoxes[kpOffset + 1] / 128) * anchor.height;
+      const kpy = anchor.yCenter + (rawBoxes[kpOffset] / 128) * anchor.height;
+      const kpx = anchor.xCenter + (rawBoxes[kpOffset + 1] / 128) * anchor.width;
       keypoints.push({ x: kpx, y: kpy });
     }
 

@@ -4,12 +4,12 @@
 export const CONFIG = {
   // Face Detection (BlazeFace short-range)
   BLAZEFACE_INPUT_SIZE: 128,
-  BLAZEFACE_SCORE_THRESHOLD: 0.6,
+  BLAZEFACE_SCORE_THRESHOLD: 0.5, // 0.5 allows detecting smaller background faces in group photos
   BLAZEFACE_IOU_THRESHOLD: 0.3,
-  MIN_FACE_SIZE: 48, // pixels on original image (TRD §4)
+  MIN_FACE_SIZE: 28, // pixels on original image (allows background faces down to 28px)
 
   // Face Crop & Preprocessing
-  CROP_MARGIN: 0.2, // 20% margin around bounding box (TRD §4)
+  CROP_MARGIN: 0.25, // 25% margin around bounding box to capture full face shape
   MOBILEFACENET_INPUT_SIZE: 112, // 112x112 input tensor
 
   // Clustering & Assignment
