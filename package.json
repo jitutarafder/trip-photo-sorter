@@ -7,7 +7,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "check": "tsc --noEmit"
+    "lint": "eslint .",
+    "test": "jest --watchAll=false",
+    "check": "tsc --noEmit && eslint . && jest --watchAll=false"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -38,7 +40,15 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^14.1.0",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.1.0",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "jest": "~29.7.0",
+    "jest-expo": "~54.0.18",
+    "prettier": "^3.9.10",
     "typescript": "~5.9.2"
   },
   "private": true
