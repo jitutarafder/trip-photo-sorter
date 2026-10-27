@@ -53,7 +53,8 @@
             "deploymentTarget": "16.0"
           }
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }

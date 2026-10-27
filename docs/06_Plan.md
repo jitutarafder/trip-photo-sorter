@@ -20,7 +20,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 - [x] S.4 **GATE.** Record in Progress Log: pairwise precision, scan speed (photos/s), peak memory. PASS if precision ≥ 85 %, ≥ 2 photos/s, peak RAM < 400 MB, no crashes. If FAIL: stop and decide (tune threshold, swap model, reduce scope) — do not continue to Phase 1
 
 ## Phase 1 — Database & Permissions
-- [ ] 1.1 `src/db/client.ts`: open DB, WAL, foreign keys
+- [x] 1.1 `src/db/client.ts`: open DB, WAL, foreign keys
 - [ ] 1.2 Migration runner + `001_init` (all tables/indexes from 05_Schema)
 - [ ] 1.3 Repositories: trips, photos, people, faces, exports, settings (+ unit tests, in-memory DB)
 - [ ] 1.4 Exclude DB from backup and verify
@@ -101,3 +101,4 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-27 | S.3 | Pure TS clustering & face crop math with unit tests; debug screen in App.tsx with 50-100 photo loader, BlazeFace + MobileFaceNet pipeline & face cluster list
 2026-10-28 | S.3 | Added native Apple Vision local Expo module (modules/apple-vision) for full-res hardware face detection on Apple Neural Engine with BlazeFace fallback; updated App.tsx and 04_TRD.md
 2026-10-28 | S.4 | GATE PASSED on iPhone Xs (iOS 18): throughput 4.7 photos/sec (213 ms/photo, gate >= 2), peak RAM < 180 MB (< 400 MB target), 0 crashes, accurate group face detection & clustering verified with Apple Vision + MobileFaceNet
+2026-10-28 | 1.1 | Implemented src/db/client.ts with WAL mode, foreign keys, sync/async getters, singleton and unit tests in __tests__/dbClient.test.ts
