@@ -16,7 +16,7 @@ Mark blocked items `[!]` with the reason.
 Goal: prove the face pipeline works on the real iPhone with real photos. No DB, no polish.
 - [x] S.1 Resolve D-5: pick BlazeFace + MobileFaceNet model files that are free to bundle; record source + licence in `docs/04_TRD.md`; add to `assets/models/`
 - [x] S.2 Debug screen: pick 20 photos from library → BlazeFace → draw boxes. Pure TS `domain/blazeface.ts` (letterbox, anchors, decode, NMS) with unit tests
-- [ ] S.3 Add MobileFaceNet embeddings + simple clustering on 50–100 of the developer's own photos; debug screen lists clusters with face crops
+- [x] S.3 Add MobileFaceNet embeddings + simple clustering on 50–100 of the developer's own photos; debug screen lists clusters with face crops
 - [ ] S.4 **GATE.** Record in Progress Log: pairwise precision, scan speed (photos/s), peak memory. PASS if precision ≥ 85 %, ≥ 2 photos/s, peak RAM < 400 MB, no crashes. If FAIL: stop and decide (tune threshold, swap model, reduce scope) — do not continue to Phase 1
 
 ## Phase 1 — Database & Permissions
@@ -98,3 +98,4 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-27 | 0.5 | Added CADisableMinimumFrameDurationOnPhone and on-device photo permission strings to app.json
 2026-10-27 | S.1 | Resolved D-5: downloaded MediaPipe BlazeFace (Apache 2.0) and MobileFaceNet (Apache 2.0/MIT) into assets/models/, documented in 04_TRD.md
 2026-10-27 | S.2 | Pure TS BlazeFace decode, anchors, letterbox, NMS in src/domain/blazeface.ts with unit tests; debug screen in App.tsx with photo picker, overlay boxes & telemetry
+2026-10-27 | S.3 | Pure TS clustering & face crop math with unit tests; debug screen in App.tsx with 50-100 photo loader, BlazeFace + MobileFaceNet pipeline & face cluster list
