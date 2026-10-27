@@ -6,7 +6,7 @@ Mark blocked items `[!]` with the reason.
 
 ## Phase 0 — Environment & Skeleton
 - [x] 0.1 `npx create-expo-app` (TypeScript template), New Architecture on, set bundle id, add `docs/`, `CLAUDE.md`, `.cursorrules`, `.gitignore` (must include `eval/`, `*.tflite` only if licence forbids redistribution)
-- [ ] 0.2 Install deps from 04_TRD via `npx expo install`; record versions in `package.json`
+- [x] 0.2 Install deps from 04_TRD via `npx expo install`; record versions in `package.json`
 - [ ] 0.3 ESLint, Prettier, strict TS, jest-expo; `npm run check`
 - [ ] 0.4 `src/theme/tokens.ts` from 03_UI_Spec + `useTheme` hook with tests
 - [ ] 0.5 `CADisableMinimumFrameDurationOnPhone` + photo permission strings in `app.json`
@@ -91,3 +91,4 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 ## Progress Log
 <!-- Format: YYYY-MM-DD | task id | note -->
 2026-10-27 | 0.1 | Initialized Expo SDK 54 TypeScript template, New Arch enabled, bundle id configured, docs/ moved, .cursorrules & .gitignore with eval/ created
+2026-10-27 | 0.2 | Installed deps from 04_TRD via npx expo install; config plugins added to app.json; versions recorded in package.json
