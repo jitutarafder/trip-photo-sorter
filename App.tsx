@@ -31,6 +31,7 @@ import {
   ClusteringResult,
   FaceEmbeddingItem,
 } from './src/domain/clustering';
+import { base64ToRgbTensor } from './src/utils/imagePixels';
 
 interface PhotoItem {
   id: string;
@@ -150,7 +151,7 @@ export default function App() {
           CONFIG.BLAZEFACE_INPUT_SIZE,
         );
 
-        await ImageManipulator.manipulateAsync(
+        const manipulated = await ImageManipulator.manipulateAsync(
           photo.uri,
           [
             {
@@ -160,14 +161,46 @@ export default function App() {
               },
             },
           ],
-          { format: ImageManipulator.SaveFormat.JPEG },
+          { format: ImageManipulator.SaveFormat.JPEG, base64: true },
         );
 
-        // Step 2: BlazeFace detection
+        if (!manipulated.base64) {
+          continue;
+        }
+
+        const sW = Math.round(letterbox.scaledWidth);
+        const sH = Math.round(letterbox.scaledHeight);
+        const rawPixels = base64ToRgbTensor(manipulated.base64, sW, sH, 127.5, 127.5);
+        if (!rawPixels) {
+          continue;
+        }
+
+        // Place scaled image into 128x128 letterbox buffer centered at (padX, padY)
         const bfInput = new Float32Array(1 * 128 * 128 * 3);
+        const padX = Math.round(letterbox.padX);
+        const padY = Math.round(letterbox.padY);
+
+        for (let y = 0; y < sH; y++) {
+          for (let x = 0; x < sW; x++) {
+            const dstY = y + padY;
+            const dstX = x + padX;
+            if (dstY >= 0 && dstY < 128 && dstX >= 0 && dstX < 128) {
+              const srcIdx = (y * sW + x) * 3;
+              const dstIdx = (dstY * 128 + dstX) * 3;
+              bfInput[dstIdx + 0] = rawPixels[srcIdx + 0];
+              bfInput[dstIdx + 1] = rawPixels[srcIdx + 1];
+              bfInput[dstIdx + 2] = rawPixels[srcIdx + 2];
+            }
+          }
+        }
+
+        // Step 2: BlazeFace detection
         const bfOutput = await blazeface.model.run([bfInput.buffer as ArrayBuffer]);
-        const rawBoxes = new Float32Array(bfOutput[0]);
-        const rawScores = new Float32Array(bfOutput[1]);
+        const out0 = new Float32Array(bfOutput[0]);
+        const out1 = new Float32Array(bfOutput[1]);
+        // Regressors have 14,336 elements (896 * 16), classificators have 896 elements
+        const rawBoxes = out0.length > out1.length ? out0 : out1;
+        const rawScores = out0.length > out1.length ? out1 : out0;
 
         const rawDetections = decodeDetections(
           rawBoxes,
@@ -212,11 +245,26 @@ export default function App() {
                 },
               },
             ],
-            { format: ImageManipulator.SaveFormat.JPEG },
+            { format: ImageManipulator.SaveFormat.JPEG, base64: true },
           );
 
+          if (!cropResult.base64) {
+            continue;
+          }
+
+          const mfnInput = base64ToRgbTensor(
+            cropResult.base64,
+            CONFIG.MOBILEFACENET_INPUT_SIZE,
+            CONFIG.MOBILEFACENET_INPUT_SIZE,
+            127.5,
+            128.0,
+          );
+
+          if (!mfnInput) {
+            continue;
+          }
+
           // Run MobileFaceNet inference
-          const mfnInput = new Float32Array(1 * 112 * 112 * 3);
           const mfnOutput = await mobilefacenet.model.run([mfnInput.buffer as ArrayBuffer]);
           const rawEmbedding = new Float32Array(mfnOutput[0]);
           const normalizedEmb = l2Normalize(rawEmbedding);
@@ -268,6 +316,103 @@ export default function App() {
   }, [photos, blazeface.model, blazeface.state, mobilefacenet.model, mobilefacenet.state]);
 
   const selectedPhoto = photos[selectedIndex];
+
+  const detectSelectedPhoto = useCallback(async () => {
+    if (!selectedPhoto) {
+      return;
+    }
+    if (!blazeface.model) {
+      setStatusMessage('BlazeFace model not ready.');
+      return;
+    }
+
+    try {
+      setStatusMessage(`Detecting faces on Photo #${selectedIndex + 1}...`);
+      const letterbox = calculateLetterbox(
+        selectedPhoto.width,
+        selectedPhoto.height,
+        CONFIG.BLAZEFACE_INPUT_SIZE,
+      );
+
+      const manipulated = await ImageManipulator.manipulateAsync(
+        selectedPhoto.uri,
+        [
+          {
+            resize: {
+              width: Math.round(letterbox.scaledWidth),
+              height: Math.round(letterbox.scaledHeight),
+            },
+          },
+        ],
+        { format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+
+      if (!manipulated.base64) {
+        setStatusMessage('Error: ImageManipulator produced no base64.');
+        return;
+      }
+
+      const sW = Math.round(letterbox.scaledWidth);
+      const sH = Math.round(letterbox.scaledHeight);
+      const rawPixels = base64ToRgbTensor(manipulated.base64, sW, sH, 127.5, 127.5);
+      if (!rawPixels) {
+        setStatusMessage('Error: Skia base64ToRgbTensor returned null.');
+        return;
+      }
+
+      const bfInput = new Float32Array(1 * 128 * 128 * 3);
+      const padX = Math.round(letterbox.padX);
+      const padY = Math.round(letterbox.padY);
+      for (let y = 0; y < sH; y++) {
+        for (let x = 0; x < sW; x++) {
+          const dstY = y + padY;
+          const dstX = x + padX;
+          if (dstY >= 0 && dstY < 128 && dstX >= 0 && dstX < 128) {
+            const srcIdx = (y * sW + x) * 3;
+            const dstIdx = (dstY * 128 + dstX) * 3;
+            bfInput[dstIdx + 0] = rawPixels[srcIdx + 0];
+            bfInput[dstIdx + 1] = rawPixels[srcIdx + 1];
+            bfInput[dstIdx + 2] = rawPixels[srcIdx + 2];
+          }
+        }
+      }
+
+      const bfOutput = await blazeface.model.run([bfInput.buffer as ArrayBuffer]);
+      const out0 = new Float32Array(bfOutput[0]);
+      const out1 = new Float32Array(bfOutput[1]);
+      const rawBoxes = out0.length > out1.length ? out0 : out1;
+      const rawScores = out0.length > out1.length ? out1 : out0;
+
+      let maxSig = 0;
+      for (let i = 0; i < rawScores.length; i++) {
+        const sig = 1 / (1 + Math.exp(-rawScores[i]));
+        if (sig > maxSig) maxSig = sig;
+      }
+
+      const rawDetections = decodeDetections(
+        rawBoxes,
+        rawScores,
+        undefined,
+        0.5,
+      );
+      const nmsDetections = nonMaxSuppression(rawDetections, CONFIG.BLAZEFACE_IOU_THRESHOLD);
+      const mappedDetections = nmsDetections.map((d) =>
+        unletterboxDetection(d, letterbox, selectedPhoto.width, selectedPhoto.height),
+      );
+
+      const nextMap = new Map(photoDetections);
+      nextMap.set(selectedPhoto.id, mappedDetections);
+      setPhotoDetections(nextMap);
+
+      setStatusMessage(
+        `Photo #${selectedIndex + 1}: Found ${mappedDetections.length} face(s) | Peak confidence: ${(maxSig * 100).toFixed(1)}%`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setStatusMessage(`Error on photo: ${msg}`);
+    }
+  }, [selectedPhoto, selectedIndex, blazeface.model, photoDetections]);
+
   const currentDetections = selectedPhoto ? photoDetections.get(selectedPhoto.id) || [] : [];
   const previewHeight = selectedPhoto
     ? (PREVIEW_WIDTH * selectedPhoto.height) / selectedPhoto.width
@@ -441,6 +586,19 @@ export default function App() {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
+            )}
+
+            {/* Single Photo Action Button */}
+            {selectedPhoto && (
+              <TouchableOpacity
+                style={styles.singleDetectButton}
+                onPress={detectSelectedPhoto}
+                disabled={isScanning}
+              >
+                <Text style={styles.singleDetectButtonText}>
+                  Detect Faces on This Photo (#{selectedIndex + 1})
+                </Text>
+              </TouchableOpacity>
             )}
 
             {/* Photo Preview with Bounding Boxes */}
@@ -761,5 +919,20 @@ const styles = StyleSheet.create({
     color: darkColors.accent,
     fontWeight: '600',
     marginTop: 2,
+  },
+  singleDetectButton: {
+    backgroundColor: darkColors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: darkColors.primary,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  singleDetectButtonText: {
+    color: darkColors.primary,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
