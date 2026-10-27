@@ -14,7 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tripphotosorter.app"
+      "bundleIdentifier": "com.tripphotosorter.app",
+      "infoPlist": {
+        "CADisableMinimumFrameDurationOnPhone": true,
+        "NSPhotoLibraryUsageDescription": "Trip Photo Sorter scans your trip photos on-device to detect and group faces for sharing. Your photos never leave your device."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -33,7 +37,15 @@
       "expo-sqlite",
       "expo-font",
       "react-native-zip-archive",
-      "react-native-fast-tflite"
+      "react-native-fast-tflite",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Trip Photo Sorter scans your trip photos on-device to detect and group faces for sharing. Your photos never leave your device.",
+          "savePhotosPermission": false,
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
     ]
   }
 }

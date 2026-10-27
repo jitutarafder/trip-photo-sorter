@@ -10,7 +10,7 @@ Mark blocked items `[!]` with the reason.
 - [x] 0.6 Public GitHub repo + `.github/workflows/ios-build.yml` (macos-latest, unsigned IPA artifact); sideload with Sideloadly/SideStore + free Apple ID; dev-client loads JS from PC Metro (TRD §2)
 - [x] 0.3 ESLint, Prettier, strict TS, jest-expo; `npm run check`
 - [x] 0.4 `src/theme/tokens.ts` from 03_UI_Spec + `useTheme` hook with tests
-- [ ] 0.5 `CADisableMinimumFrameDurationOnPhone` + photo permission strings in `app.json`
+- [x] 0.5 `CADisableMinimumFrameDurationOnPhone` + photo permission strings in `app.json`
 
 ## Phase 0.5 — Risk Spike (GO / NO-GO before any real UI)
 Goal: prove the face pipeline works on the real iPhone with real photos. No DB, no polish.
@@ -95,3 +95,4 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-27 | 0.6 | Added .github/workflows/ios-build.yml for unsigned IPA builds in GitHub Actions and docs/SIDELOAD.md for Windows sideloading
 2026-10-27 | 0.3 | Configured ESLint (with fetch/axios restrictions per TRD), Prettier, jest-expo, and updated npm run check
 2026-10-27 | 0.4 | Created src/theme/tokens.ts with 03_UI_Spec tokens, useTheme hook, and unit tests
+2026-10-27 | 0.5 | Added CADisableMinimumFrameDurationOnPhone and on-device photo permission strings to app.json
