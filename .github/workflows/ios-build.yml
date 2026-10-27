@@ -39,8 +39,8 @@ jobs:
       - name: Build Xcode Archive (Code Signing Disabled)
         run: |
           WORKSPACE=$(ls -d ios/*.xcworkspace | head -n 1)
-          SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" -json | jq -r '.workspace.schemes[0]')
-          echo "Building workspace: $WORKSPACE with scheme: $SCHEME"
+          SCHEME=$(basename ios/*.xcodeproj .xcodeproj)
+          echo "Building workspace: $WORKSPACE with app scheme: $SCHEME"
           xcodebuild archive \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
@@ -54,7 +54,13 @@ jobs:
       - name: Package unsigned .ipa
         run: |
           mkdir -p build/Payload
-          cp -R build/TripPhotoSorter.xcarchive/Products/Applications/*.app build/Payload/
+          APP_PATH=$(find build -name "*.app" -maxdepth 4 | head -n 1)
+          echo "Found application bundle at: $APP_PATH"
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: No .app bundle found in build folder"
+            exit 1
+          fi
+          cp -R "$APP_PATH" build/Payload/
           cd build
           zip -r -y TripPhotoSorter-unsigned.ipa Payload
 
