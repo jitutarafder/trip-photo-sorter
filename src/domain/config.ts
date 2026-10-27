@@ -13,8 +13,8 @@ export const CONFIG = {
   MOBILEFACENET_INPUT_SIZE: 112, // 112x112 input tensor
 
   // Clustering & Assignment
-  CLUSTER_DISTANCE: 0.45, // Average linkage cosine distance threshold
-  ASSIGN_DISTANCE: 0.5, // Nearest centroid cosine distance threshold
+  CLUSTER_DISTANCE: 0.58, // Average linkage cosine distance threshold (tuned from 0.45 to merge split clusters)
+  ASSIGN_DISTANCE: 0.62, // Nearest centroid cosine distance threshold
   MIN_CLUSTER_SIZE: 2, // Clusters with < 2 faces go to "Others" (TRD §4)
 
   // Trip Detection (MVP: time-gap rule only)

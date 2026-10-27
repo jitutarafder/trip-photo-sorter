@@ -63,6 +63,26 @@ export default function App() {
   const [photoDetections, setPhotoDetections] = useState<Map<string, FaceDetection[]>>(new Map());
   const [scannedFaces, setScannedFaces] = useState<ScannedFace[]>([]);
   const [clusteringResult, setClusteringResult] = useState<ClusteringResult | null>(null);
+  const [clusterThreshold, setClusterThreshold] = useState<number>(CONFIG.CLUSTER_DISTANCE);
+
+  const reclusterWithThreshold = useCallback(
+    (newThreshold: number) => {
+      setClusterThreshold(newThreshold);
+      if (scannedFaces.length === 0) {
+        return;
+      }
+      const embeddingItems: FaceEmbeddingItem[] = scannedFaces.map((f) => ({
+        id: f.id,
+        embedding: f.embedding,
+      }));
+      const res = clusterEmbeddings(embeddingItems, newThreshold, CONFIG.MIN_CLUSTER_SIZE);
+      setClusteringResult(res);
+      setStatusMessage(
+        `Re-clustered at threshold ${newThreshold.toFixed(2)}: ${res.clusters.length} people + ${res.othersItemIds.length} Others.`,
+      );
+    },
+    [scannedFaces],
+  );
 
   // Telemetry
   const [telemetry, setTelemetry] = useState<{
@@ -508,6 +528,37 @@ export default function App() {
           <View style={styles.clustersContainer}>
             {clusteringResult ? (
               <>
+                {/* Live Threshold Tuning Bar */}
+                <View style={styles.thresholdBar}>
+                  <Text style={styles.thresholdLabel}>
+                    Threshold: {clusterThreshold.toFixed(2)}
+                  </Text>
+                  <View style={styles.thresholdButtons}>
+                    <TouchableOpacity
+                      style={styles.thresholdBtn}
+                      onPress={() =>
+                        reclusterWithThreshold(
+                          Math.max(0.3, Math.round((clusterThreshold - 0.05) * 100) / 100),
+                        )
+                      }
+                    >
+                      <Text style={styles.thresholdBtnText}>- 0.05 (Split)</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.thresholdBtn, styles.thresholdBtnActive]}
+                      onPress={() =>
+                        reclusterWithThreshold(
+                          Math.min(0.9, Math.round((clusterThreshold + 0.05) * 100) / 100),
+                        )
+                      }
+                    >
+                      <Text style={[styles.thresholdBtnText, styles.thresholdBtnTextActive]}>
+                        + 0.05 (Merge)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
                 {clusteringResult.clusters.map((cluster, cIndex) => (
                   <View key={cluster.id} style={styles.clusterCard}>
                     <View style={styles.clusterHeader}>
@@ -934,5 +985,42 @@ const styles = StyleSheet.create({
     color: darkColors.primary,
     fontSize: 13,
     fontWeight: '600',
+  },
+  thresholdBar: {
+    backgroundColor: darkColors.surface,
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: darkColors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  thresholdLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: darkColors.text,
+  },
+  thresholdButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  thresholdBtn: {
+    backgroundColor: darkColors.surfaceAlt,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  thresholdBtnActive: {
+    backgroundColor: darkColors.primary,
+  },
+  thresholdBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: darkColors.text,
+  },
+  thresholdBtnTextActive: {
+    color: darkColors.onPrimary,
   },
 });
