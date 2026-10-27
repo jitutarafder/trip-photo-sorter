@@ -6,6 +6,7 @@ import { CONFIG } from './config';
 export interface FaceEmbeddingItem {
   id: string;
   embedding: Float32Array;
+  photoId?: string;
 }
 
 export interface FaceCluster {
@@ -120,7 +121,32 @@ export function averageLinkageDistance(
 }
 
 /**
- * Agglomerative hierarchical clustering with average linkage on cosine distance.
+ * Checks whether two clusters contain faces originating from the exact same photo.
+ * A single photograph cannot contain multiple faces of the same person (cannot-link constraint).
+ */
+export function haveOverlappingPhotos(
+  clusterA: number[],
+  clusterB: number[],
+  photoIds: (string | undefined)[],
+): boolean {
+  const seenPhotos = new Set<string>();
+  for (let i = 0; i < clusterA.length; i++) {
+    const pid = photoIds[clusterA[i]];
+    if (pid !== undefined) {
+      seenPhotos.add(pid);
+    }
+  }
+  for (let i = 0; i < clusterB.length; i++) {
+    const pid = photoIds[clusterB[i]];
+    if (pid !== undefined && seenPhotos.has(pid)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Agglomerative hierarchical clustering with average linkage and same-photo cannot-link constraint.
  * (TRD §4: threshold CLUSTER_DISTANCE = 0.45, clusters with 1 face -> Others)
  */
 export function clusterEmbeddings(
@@ -132,6 +158,8 @@ export function clusterEmbeddings(
   if (n === 0) {
     return { clusters: [], othersItemIds: [] };
   }
+
+  const photoIds = items.map((it) => it.photoId);
 
   // Pre-calculate pairwise distance matrix
   const distMatrix: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
@@ -154,6 +182,11 @@ export function clusterEmbeddings(
     // Find pair of clusters with minimum average distance
     for (let a = 0; a < activeClusters.length; a++) {
       for (let b = a + 1; b < activeClusters.length; b++) {
+        // Cannot-link constraint: faces from the exact same photo cannot merge
+        if (haveOverlappingPhotos(activeClusters[a], activeClusters[b], photoIds)) {
+          continue;
+        }
+
         const d = averageLinkageDistance(activeClusters[a], activeClusters[b], distMatrix);
         if (d < minDistance) {
           minDistance = d;

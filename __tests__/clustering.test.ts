@@ -173,4 +173,22 @@ describe('Agglomerative Hierarchical Clustering', () => {
     expect(normalResult.clusters).toHaveLength(1);
     expect(normalResult.clusters[0].itemIds).toEqual(['f1', 'f2']);
   });
+
+  it('never merges faces from the exact same photo (cannot-link constraint)', () => {
+    // Two faces that have very close embeddings (e.g. distance = 0.05)
+    // but they come from the EXACT same photo (photo_49)
+    const f1 = new Float32Array([1, 0, 0]);
+    const f2 = new Float32Array([0.99, 0.01, 0]);
+
+    const items: FaceEmbeddingItem[] = [
+      { id: 'f1', embedding: f1, photoId: 'photo_49' },
+      { id: 'f2', embedding: f2, photoId: 'photo_49' },
+    ];
+
+    // Even with a very permissive threshold of 0.6, they must NOT merge!
+    const result = clusterEmbeddings(items, 0.6, 2);
+    expect(result.clusters).toHaveLength(0);
+    expect(result.othersItemIds).toEqual(['f1', 'f2']);
+  });
 });
+

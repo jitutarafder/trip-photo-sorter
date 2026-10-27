@@ -63,17 +63,26 @@ async function detectFacesForPhoto(
       const visionFaces = await detectFacesWithAppleVision(photo.uri);
       if (visionFaces && visionFaces.length > 0) {
         let peakConf = 0;
-        const detections: FaceDetection[] = visionFaces.map((vf) => {
+        for (const vf of visionFaces) {
           if (vf.confidence > peakConf) peakConf = vf.confidence;
-          return {
-            x: vf.x,
-            y: vf.y,
-            width: vf.width,
-            height: vf.height,
-            score: vf.confidence,
-            keypoints: [],
-          };
-        });
+        }
+
+        // Filter false positives (screenshots, text blocks, tiny artifacts)
+        const validVisionFaces = visionFaces.filter(
+          (vf) =>
+            vf.confidence >= 0.55 &&
+            vf.pixelWidth >= 30 &&
+            (vf.captureQuality === undefined || vf.captureQuality >= 0.15),
+        );
+
+        const detections: FaceDetection[] = validVisionFaces.map((vf) => ({
+          x: vf.x,
+          y: vf.y,
+          width: vf.width,
+          height: vf.height,
+          score: vf.confidence,
+          keypoints: [],
+        }));
         return { detections, peakConfidence: peakConf };
       }
     } catch (e) {
@@ -191,6 +200,7 @@ export default function App() {
       const embeddingItems: FaceEmbeddingItem[] = scannedFaces.map((f) => ({
         id: f.id,
         embedding: f.embedding,
+        photoId: f.photoId,
       }));
       const res = clusterEmbeddings(embeddingItems, newThreshold, CONFIG.MIN_CLUSTER_SIZE);
       setClusteringResult(res);
@@ -351,6 +361,7 @@ export default function App() {
       const embeddingItems: FaceEmbeddingItem[] = newScannedFaces.map((f) => ({
         id: f.id,
         embedding: f.embedding,
+        photoId: f.photoId,
       }));
 
       const clusterRes = clusterEmbeddings(

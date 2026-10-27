@@ -1,4 +1,4 @@
-import { Skia } from '@shopify/react-native-skia';
+import { Skia, ColorType, AlphaType } from '@shopify/react-native-skia';
 
 /**
  * Decodes a JPEG/PNG base64 string using Skia and extracts normalized RGB Float32Array pixel tensor.
@@ -26,14 +26,19 @@ export function base64ToRgbTensor(
     }
 
     image = image.makeNonTextureImage();
-    const pixels = image.readPixels();
+    const actualW = image.width();
+    const actualH = image.height();
+    const pixels = image.readPixels(0, 0, {
+      width: actualW,
+      height: actualH,
+      colorType: ColorType.RGBA_8888,
+      alphaType: AlphaType.Unpremul,
+    });
     if (!pixels) {
       console.warn('[base64ToRgbTensor] image.readPixels() returned null');
       return null;
     }
 
-    const actualW = image.width();
-    const actualH = image.height();
     const totalPixels = actualW * actualH;
     const tensor = new Float32Array(totalPixels * 3);
     const invStd = 1.0 / std;
