@@ -227,3 +227,67 @@ export async function deleteMissingGalleryPhotos(
   );
   return result.changes;
 }
+
+/**
+ * Assigns a trip ID to an array of photo IDs (chunks queries to stay within SQLite limits).
+ */
+export async function assignPhotosToTrip(
+  photoIds: string[],
+  tripId: string | null,
+  db?: SQLiteDatabase
+): Promise<number> {
+  if (photoIds.length === 0) return 0;
+  const database = await resolveDb(db);
+  const CHUNK_SIZE = 400;
+  let totalChanges = 0;
+
+  for (let i = 0; i < photoIds.length; i += CHUNK_SIZE) {
+    const chunk = photoIds.slice(i, i + CHUNK_SIZE);
+    const placeholders = chunk.map(() => '?').join(', ');
+    const result = await database.runAsync(
+      `UPDATE photos SET trip_id = ? WHERE id IN (${placeholders});`,
+      [tripId, ...chunk]
+    );
+    totalChanges += result.changes;
+  }
+
+  return totalChanges;
+}
+
+/**
+ * Sets trip_id to NULL for all photos belonging to a trip.
+ */
+export async function unassignPhotosFromTrip(
+  tripId: string,
+  db?: SQLiteDatabase
+): Promise<number> {
+  const database = await resolveDb(db);
+  const result = await database.runAsync(
+    'UPDATE photos SET trip_id = NULL WHERE trip_id = ?;',
+    [tripId]
+  );
+  return result.changes;
+}
+
+/**
+ * Retrieves photo timestamp items for trip detection, excluding photos
+ * assigned to protected user-edited trips.
+ */
+export async function getPhotosForTripDetection(
+  protectedTripIds: string[] = [],
+  db?: SQLiteDatabase
+): Promise<{ id: string; taken_at: number; trip_id: string | null }[]> {
+  const database = await resolveDb(db);
+  if (protectedTripIds.length > 0) {
+    const placeholders = protectedTripIds.map(() => '?').join(', ');
+    return await database.getAllAsync<{ id: string; taken_at: number; trip_id: string | null }>(
+      `SELECT id, taken_at, trip_id FROM photos
+       WHERE trip_id IS NULL OR trip_id NOT IN (${placeholders})
+       ORDER BY taken_at ASC;`,
+      protectedTripIds
+    );
+  }
+  return await database.getAllAsync<{ id: string; taken_at: number; trip_id: string | null }>(
+    'SELECT id, taken_at, trip_id FROM photos ORDER BY taken_at ASC;'
+  );
+}

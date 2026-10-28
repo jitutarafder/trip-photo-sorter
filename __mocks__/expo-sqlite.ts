@@ -384,6 +384,22 @@ class InMemoryEngine {
     if (/is_hidden\s*=\s*0$/i.test(clause)) {
       return Number(row.is_hidden) === 0;
     }
+    if (/is_user_edited\s*=\s*1/i.test(clause)) {
+      return Number(row.is_user_edited) === 1;
+    }
+    if (/is_user_edited\s*=\s*0/i.test(clause)) {
+      return Number(row.is_user_edited) === 0;
+    }
+    if (/trip_id\s+IS\s+NULL\s+OR\s+trip_id\s+NOT\s+IN/i.test(clause)) {
+      if (row.trip_id === null || row.trip_id === undefined) return true;
+      return !params.includes(row.trip_id);
+    }
+    if (/trip_id\s+IN\s*\(/i.test(clause)) {
+      return params.includes(row.trip_id);
+    }
+    if (/trip_id\s+NOT\s+IN\s*\(/i.test(clause)) {
+      return !params.includes(row.trip_id);
+    }
     if (/zip_path\s+IS\s+NOT\s+NULL|status\s+IN\s*\(\s*'pending'/i.test(clause)) {
       const activeStatuses = ['pending', 'zipping', 'ready', 'sharing'];
       return row.zip_path !== null || activeStatuses.includes(row.status as string);

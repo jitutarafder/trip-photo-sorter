@@ -325,3 +325,27 @@ export async function mergeTrips(
   }
   return updated;
 }
+
+/**
+ * Retrieves all user-edited trips (is_user_edited = 1) that are protected from re-detection.
+ */
+export async function getUserEditedTrips(
+  db?: SQLiteDatabase
+): Promise<TripRow[]> {
+  const database = await resolveDb(db);
+  return await database.getAllAsync<TripRow>(
+    'SELECT * FROM trips WHERE is_user_edited = 1 ORDER BY start_at DESC;'
+  );
+}
+
+/**
+ * Retrieves all automatically detected trips (is_user_edited = 0).
+ */
+export async function getAutoDetectedTrips(
+  db?: SQLiteDatabase
+): Promise<TripRow[]> {
+  const database = await resolveDb(db);
+  return await database.getAllAsync<TripRow>(
+    'SELECT * FROM trips WHERE is_user_edited = 0 ORDER BY start_at DESC;'
+  );
+}

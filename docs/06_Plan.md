@@ -30,7 +30,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 
 ## Phase 2 — Core Engines (debug screens only)
 - [x] 2.1 `domain/tripDetection.ts`: **time-gap rule only** (12 h gap, ≥ 15 photos, ≥ 3 h span); tests: gaps, midnight, single-photo days. GPS "away from home" is v2, do not build
-- [ ] 2.2 Persist trips, assign `photos.trip_id`, preserve `is_user_edited` trips on re-detect
+- [x] 2.2 Persist trips, assign `photos.trip_id`, preserve `is_user_edited` trips on re-detect
 - [ ] 2.3 Promote spike code: `services/faceScan.ts` — sequential scan (concurrency 2), resume, cancel, pause on background, memory-safe, writes `faces`
 - [ ] 2.4 Face quality filter `domain/faceQuality.ts`: min size, detector confidence, blur (Laplacian variance on crop), extreme pose via landmarks; low-quality faces stored with `quality_ok=0` and excluded from clustering/centroids; thresholds in `config.ts`
 - [ ] 2.5 `domain/clustering.ts`: average-linkage on cosine distance (`CLUSTER_DISTANCE` from config); persist `people` + `faces.person_id`; tests
@@ -109,3 +109,4 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-28 | 1.6 | Implemented syncLibrary in batches of 500, incremental sync via settings.last_sync_at, conflict-preserving photo upserts, useLibrarySync hook, and 10 unit tests with mocked media library
 2026-10-28 | 1.7 | Implemented sweepOrphanTempExports at launch (filesystem & DB cleanup), cleanupExportFile exit path helper, useOrphanSweep hook, and 10 unit tests
 2026-10-28 | 2.1 | Implemented pure TS trip detection engine in src/domain/tripDetection.ts using time-gap rule (12 h gap, >= 15 photos, >= 3 h span), cover photo assignment, human-readable trip naming, and 21 unit tests covering gaps, midnight crossings, single-photo days, and boundary thresholds
+2026-10-28 | 2.2 | Implemented detectAndPersistTrips in src/services/tripService.ts with atomic SQLite transaction, auto-trip reconciliation, photo trip_id assignment, strict preservation of is_user_edited=1 trips, useTripDetection hook, and 6 unit tests
