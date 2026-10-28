@@ -12,6 +12,12 @@ export const CONFIG = {
   CROP_MARGIN: 0.25, // 25% margin around bounding box to capture full face shape
   MOBILEFACENET_INPUT_SIZE: 112, // 112x112 input tensor
 
+  // Face Quality Filter (TRD §4)
+  MIN_FACE_CONFIDENCE: 0.5, // Minimum detector confidence
+  BLUR_MIN: 35.0, // Minimum Laplacian variance of grey crop (below = blurry)
+  YAW_MAX_RAD: 0.8, // ~45.8 degrees maximum yaw angle (beyond = extreme pose)
+  LANDMARK_YAW_MAX_RATIO: 0.65, // Max nose-to-eye horizontal asymmetry ratio
+
   // Clustering & Assignment
   CLUSTER_DISTANCE: 0.32, // Cosine distance threshold (tuned to 0.32 based on real-world iPhone evaluation)
   ASSIGN_DISTANCE: 0.35, // Nearest centroid cosine distance threshold

@@ -22,6 +22,11 @@ import {
   unletterboxDetection,
   filterMinFaceSize,
 } from '../domain/blazeface';
+import {
+  evaluateFaceQuality,
+  type FaceLandmarksInput,
+  type FaceQualityOptions,
+} from '../domain/faceQuality';
 
 export interface FaceDetectionBox {
   x: number;
@@ -29,6 +34,10 @@ export interface FaceDetectionBox {
   width: number;
   height: number;
   score: number;
+  yaw?: number;
+  roll?: number;
+  landmarks?: FaceLandmarksInput;
+  blurScore?: number;
 }
 
 export interface ModelRunner {
@@ -61,6 +70,7 @@ export interface ScanTripFacesOptions {
   mobilefacenetModel?: ModelRunner;
   photoUriResolver?: (photoId: string) => Promise<string | null>;
   controller?: ScanController;
+  qualityOptions?: FaceQualityOptions;
   onProgress?: (progress: ScanTripProgress) => void;
 }
 
@@ -163,6 +173,8 @@ export async function defaultDetectFaces(
           width: vf.width,
           height: vf.height,
           score: vf.confidence,
+          yaw: vf.yaw,
+          roll: vf.roll,
         }));
       }
       return [];
@@ -247,6 +259,13 @@ export async function defaultDetectFaces(
     width: d.width,
     height: d.height,
     score: d.score,
+    landmarks: {
+      rightEye: d.keypoints[0],
+      leftEye: d.keypoints[1],
+      noseTip: d.keypoints[2],
+      rightEar: d.keypoints[4],
+      leftEar: d.keypoints[5],
+    },
   }));
 }
 
@@ -467,6 +486,21 @@ export async function scanTripFaces(
               floatEmbedding.byteLength
             );
 
+            // Evaluate quality filter (min size, confidence, blur, extreme pose)
+            const pixelWidth = det.width * photo.width;
+            const pixelHeight = det.height * photo.height;
+            const qualityRes = evaluateFaceQuality(
+              {
+                pixelWidth,
+                pixelHeight,
+                confidence: det.score,
+                blurScore: det.blurScore,
+                yawRadians: det.yaw,
+                landmarks: det.landmarks,
+              },
+              options.qualityOptions
+            );
+
             const faceRow: FaceRow = {
               id: generateUUID(),
               photo_id: photo.id,
@@ -477,8 +511,8 @@ export async function scanTripFaces(
               bbox_w: det.width,
               bbox_h: det.height,
               quality: det.score,
-              quality_ok: 1,
-              blur: null,
+              quality_ok: qualityRes.quality_ok,
+              blur: qualityRes.blur,
               embedding: uint8Embedding,
             };
 
