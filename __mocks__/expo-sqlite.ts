@@ -410,6 +410,12 @@ class InMemoryEngine {
       const activeStatuses = ['pending', 'zipping', 'ready', 'sharing'];
       return row.zip_path !== null || activeStatuses.includes(row.status as string);
     }
+    if (/quality_ok\s*=\s*1/i.test(clause)) {
+      return Number(row.quality_ok) === 1;
+    }
+    if (/quality_ok\s*=\s*0/i.test(clause)) {
+      return Number(row.quality_ok) === 0;
+    }
 
     return false;
   }

@@ -462,6 +462,14 @@ export default function App() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => loadPhotos(300)}
+          disabled={isScanning}
+        >
+          <Text style={styles.secondaryButtonText}>Load 300</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[
             styles.primaryButton,
             (isScanning || photos.length === 0) && styles.buttonDisabled,
