@@ -22,7 +22,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 ## Phase 1 — Database & Permissions
 - [x] 1.1 `src/db/client.ts`: open DB, WAL, foreign keys
 - [x] 1.2 Migration runner + `001_init` (all tables/indexes from 05_Schema)
-- [ ] 1.3 Repositories: trips, photos, people, faces, exports, settings (+ unit tests, in-memory DB)
+- [x] 1.3 Repositories: trips, photos, people, faces, exports, settings (+ unit tests, in-memory DB)
 - [ ] 1.4 Exclude DB from backup and verify
 - [ ] 1.5 `services/library.ts`: permission (full/limited/denied) + status hook
 - [ ] 1.6 Incremental library sync (batches of 500); tests with mocked media library
@@ -103,3 +103,4 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-28 | S.4 | GATE PASSED on iPhone Xs (iOS 18): throughput 4.7 photos/sec (213 ms/photo, gate >= 2), peak RAM < 180 MB (< 400 MB target), 0 crashes, accurate group face detection & clustering verified with Apple Vision + MobileFaceNet
 2026-10-28 | 1.1 | Implemented src/db/client.ts with WAL mode, foreign keys, sync/async getters, singleton and unit tests in __tests__/dbClient.test.ts
 2026-10-28 | 1.2 | Implemented migration runner with sync/async & resetDatabase, 001_init schema with all tables & 8 indexes from 05_Schema, row types in src/db/types.ts, and unit tests
+2026-10-28 | 1.3 | Implemented trips, photos, people, faces, exports, settings repositories with transactional operations, Key Queries, and comprehensive in-memory unit tests
