@@ -360,6 +360,12 @@ class InMemoryEngine {
     if (/^person_id\s*=\s*\?$/i.test(clause)) {
       return row.person_id === params[0];
     }
+    if (/^person_id\s*=\s*\?\s*OR\s*person_id\s*=\s*\?$/i.test(clause)) {
+      return row.person_id === params[0] || row.person_id === params[1];
+    }
+    if (/^person_id\s+IN\s*\(/i.test(clause)) {
+      return params.includes(row.person_id);
+    }
     if (/^trip_id\s*=\s*\?$/i.test(clause)) {
       return row.trip_id === params[0];
     }
