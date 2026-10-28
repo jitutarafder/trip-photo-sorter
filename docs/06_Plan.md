@@ -24,7 +24,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 - [x] 1.2 Migration runner + `001_init` (all tables/indexes from 05_Schema)
 - [x] 1.3 Repositories: trips, photos, people, faces, exports, settings (+ unit tests, in-memory DB)
 - [x] 1.4 Exclude DB from backup and verify
-- [ ] 1.5 `services/library.ts`: permission (full/limited/denied) + status hook
+- [x] 1.5 `services/library.ts`: permission (full/limited/denied) + status hook
 - [ ] 1.6 Incremental library sync (batches of 500); tests with mocked media library
 - [ ] 1.7 Orphan temp export sweep at launch
 
@@ -105,3 +105,4 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-28 | 1.2 | Implemented migration runner with sync/async & resetDatabase, 001_init schema with all tables & 8 indexes from 05_Schema, row types in src/db/types.ts, and unit tests
 2026-10-28 | 1.3 | Implemented trips, photos, people, faces, exports, settings repositories with transactional operations, Key Queries, and comprehensive in-memory unit tests
 2026-10-28 | 1.4 | Implemented SQLite backup exclusion via NSURLIsExcludedFromBackupKey in native module and src/db/backup.ts, integrated with openDb, with unit tests
+2026-10-28 | 1.5 | Implemented services/library.ts (read-only permissions, full/limited/denied mapping, openSettings, presentLimitedLibraryPicker), useLibraryPermission hook with AppState foreground re-check, and 17 unit tests
