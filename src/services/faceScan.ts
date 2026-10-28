@@ -28,6 +28,7 @@ import {
   type FaceQualityOptions,
 } from '../domain/faceQuality';
 import { clusterAndPersistTripFaces } from './clustering';
+import { getTripFreeTierStatus } from './purchases';
 
 export interface FaceDetectionBox {
   x: number;
@@ -73,6 +74,7 @@ export interface ScanTripFacesOptions {
   controller?: ScanController;
   qualityOptions?: FaceQualityOptions;
   autoCluster?: boolean;
+  enableProGate?: boolean;
   onProgress?: (progress: ScanTripProgress) => void;
 }
 
@@ -83,6 +85,7 @@ export interface ScanTripFacesResult {
   skippedCount: number;
   failedCount: number;
   totalPhotos: number;
+  paywallRequired?: boolean;
   error?: Error;
 }
 
@@ -363,6 +366,22 @@ export async function scanTripFaces(
       skippedCount: 0,
       failedCount: 0,
       totalPhotos: 0,
+      paywallRequired: false,
+    };
+  }
+
+  // Check free-tier gate before scanning (PRD US-11, Plan 2.9)
+  const freeTierStatus = await getTripFreeTierStatus(tripId, database, options.enableProGate);
+  if (freeTierStatus.requiresPaywall) {
+    await updateTrip(tripId, { scan_status: 'paused' }, database);
+    return {
+      status: 'paused',
+      scannedCount: 0,
+      facesFound: 0,
+      skippedCount: 0,
+      failedCount: 0,
+      totalPhotos,
+      paywallRequired: true,
     };
   }
 
@@ -393,6 +412,7 @@ export async function scanTripFaces(
   let facesFound = 0;
   let skippedCount = 0;
   let failedCount = 0;
+  let paywallHit = false;
 
   try {
     let nextIndex = 0;
@@ -400,6 +420,15 @@ export async function scanTripFaces(
     // Worker function: continuously consumes next available pending photo
     const worker = async () => {
       while (nextIndex < pendingPhotos.length && !controller.shouldStop) {
+        if (!freeTierStatus.isPro) {
+          const currentTrip = await getTripById(tripId, database);
+          if ((currentTrip?.scanned_count ?? 0) >= CONFIG.FREE_SCAN_LIMIT_PER_TRIP) {
+            paywallHit = true;
+            controller.pause();
+            break;
+          }
+        }
+
         const currentIndex = nextIndex++;
         const photo = pendingPhotos[currentIndex];
 
@@ -543,7 +572,10 @@ export async function scanTripFaces(
 
     // Determine final status
     let finalStatus: ScanTripFacesResult['status'] = 'completed';
-    if (controller.isCancelled) {
+    if (paywallHit) {
+      finalStatus = 'paused';
+      await updateTrip(tripId, { scan_status: 'paused' }, database);
+    } else if (controller.isCancelled) {
       finalStatus = 'cancelled';
       await updateTrip(tripId, { scan_status: 'paused' }, database);
     } else if (controller.isPaused) {
@@ -571,6 +603,7 @@ export async function scanTripFaces(
       skippedCount,
       failedCount,
       totalPhotos,
+      paywallRequired: paywallHit,
     };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));

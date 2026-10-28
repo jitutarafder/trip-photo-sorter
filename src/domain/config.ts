@@ -27,4 +27,9 @@ export const CONFIG = {
   TRIP_GAP_HOURS: 12,
   MIN_TRIP_PHOTOS: 15,
   MIN_TRIP_HOURS: 3,
+
+  // Free Tier & Monetization (Plan 2.9, TRD §1, PRD US-11, Open Decision D-1 & D-2)
+  FREE_SCAN_LIMIT_PER_TRIP: 50, // 50 photos per trip on free tier
+  ENABLE_PRO_GATE: false, // Feature flag: default OFF ($0 MVP, everything unlocked)
+  PRO_PRICE_USD: '$4.99', // Pro unlock price ($4.99 per PRD §8 D-2)
 } as const;

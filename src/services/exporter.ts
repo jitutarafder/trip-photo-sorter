@@ -19,6 +19,8 @@ import {
   markInterruptedExportsAsCancelled,
 } from '../db/repositories/exports';
 import type { ExportStatus, PhotoRow } from '../db/types';
+import { CONFIG } from '../domain/config';
+import { isProUser } from './purchases';
 
 export interface SweepResult {
   deletedFilesCount: number;
@@ -49,6 +51,7 @@ export interface ExportPersonOptions {
     title?: string
   ) => Promise<{ success?: boolean; dismissed?: boolean; dismissedAction?: boolean }>;
   resolvePhotoUriFn?: (photo: PhotoRow) => Promise<string | null>;
+  enableProGate?: boolean;
 }
 
 export interface ExportResult {
@@ -74,6 +77,7 @@ export interface BatchExportOptions {
     title?: string
   ) => Promise<{ success?: boolean; dismissed?: boolean; dismissedAction?: boolean }>;
   resolvePhotoUriFn?: (photo: PhotoRow) => Promise<string | null>;
+  enableProGate?: boolean;
 }
 
 /**
@@ -239,6 +243,14 @@ export async function exportPerson(
   const trip = await getTripById(options.tripId, database);
   if (!trip) {
     throw new Error(`Trip ${options.tripId} not found`);
+  }
+
+  // Free-tier export gate (05_Schema §3 Key Query, AppFlow §3.7)
+  const isPro = await isProUser(database, options.enableProGate);
+  if (!isPro && trip.scanned_count > CONFIG.FREE_SCAN_LIMIT_PER_TRIP) {
+    throw new Error(
+      `Free-tier limit exceeded (${trip.scanned_count} photos scanned, max ${CONFIG.FREE_SCAN_LIMIT_PER_TRIP}). Unlock Pro to export.`
+    );
   }
 
   // 2. Query photos for person with solo-only filter (05_Schema Key Query)
@@ -495,6 +507,7 @@ export async function exportNamedPeopleBatch(
         shareSingleFn: options.shareSingleFn,
         shareMultiFn: options.shareMultiFn,
         resolvePhotoUriFn: options.resolvePhotoUriFn,
+        enableProGate: options.enableProGate,
       });
       results.push(res);
     } catch {
