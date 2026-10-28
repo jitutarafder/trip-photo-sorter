@@ -262,10 +262,37 @@ class InMemoryEngine {
     for (const [pk, row] of Array.from(table.entries())) {
       if (this.evalWhere(whereClause, row, whereParams)) {
         const updated = { ...row };
-        const setAssignments = setClause.split(',').map((s) => s.trim());
+        const setAssignments: string[] = [];
+        let currentAssign = '';
+        let parenDepth = 0;
+        for (let i = 0; i < setClause.length; i++) {
+          const char = setClause[i];
+          if (char === '(') {
+            parenDepth++;
+            currentAssign += char;
+          } else if (char === ')') {
+            parenDepth = Math.max(0, parenDepth - 1);
+            currentAssign += char;
+          } else if (char === ',' && parenDepth === 0) {
+            if (currentAssign.trim().length > 0) {
+              setAssignments.push(currentAssign.trim());
+            }
+            currentAssign = '';
+          } else {
+            currentAssign += char;
+          }
+        }
+        if (currentAssign.trim().length > 0) {
+          setAssignments.push(currentAssign.trim());
+        }
+
         let pIdx = 0;
         for (const assign of setAssignments) {
-          const [col, expr] = assign.split('=').map((s) => s.trim());
+          const eqIdx = assign.indexOf('=');
+          if (eqIdx === -1) continue;
+          const col = assign.slice(0, eqIdx).trim();
+          const expr = assign.slice(eqIdx + 1).trim();
+          if (!col || !expr) continue;
           if (expr === '?') {
             updated[col] = setParams[pIdx++];
           } else if (expr.includes('+ ?')) {
@@ -275,6 +302,12 @@ class InMemoryEngine {
             updated[col] = null;
           } else if (expr.startsWith("'") && expr.endsWith("'")) {
             updated[col] = expr.slice(1, -1);
+          } else if (/^COALESCE\(/i.test(expr)) {
+            const cm = /COALESCE\(\s*([a-zA-Z0-9_]+)\s*,\s*'([^']+)'\s*\)/i.exec(expr);
+            if (cm) {
+              const defaultVal = cm[2];
+              updated[col] = updated[col] ? updated[col] : defaultVal;
+            }
           } else if (!isNaN(Number(expr))) {
             updated[col] = Number(expr);
           }
@@ -348,8 +381,12 @@ class InMemoryEngine {
     if (/^id\s+NOT\s+IN\s*\(/i.test(clause)) {
       return !params.includes(row.id);
     }
-    if (/^is_hidden\s*=\s*0$/i.test(clause)) {
+    if (/is_hidden\s*=\s*0$/i.test(clause)) {
       return Number(row.is_hidden) === 0;
+    }
+    if (/zip_path\s+IS\s+NOT\s+NULL|status\s+IN\s*\(\s*'pending'/i.test(clause)) {
+      const activeStatuses = ['pending', 'zipping', 'ready', 'sharing'];
+      return row.zip_path !== null || activeStatuses.includes(row.status as string);
     }
 
     return false;
@@ -357,6 +394,19 @@ class InMemoryEngine {
 
   query<T>(sqlRaw: string, params: unknown[] = []): T[] {
     const sql = sqlRaw.replace(/;\s*$/, '').trim();
+
+    // SELECT * FROM exports WHERE zip_path IS NOT NULL OR status IN ('pending', 'zipping', 'ready', 'sharing')
+    if (/FROM\s+exports\s+WHERE\s+(?:zip_path\s+IS\s+NOT\s+NULL|status\s+IN)/i.test(sql)) {
+      const exportsTable = this.getTable('exports');
+      const activeStatuses = ['pending', 'zipping', 'ready', 'sharing'];
+      const results: T[] = [];
+      for (const row of Array.from(exportsTable.values())) {
+        if (row.zip_path !== null || activeStatuses.includes(row.status as string)) {
+          results.push(row as unknown as T);
+        }
+      }
+      return results;
+    }
 
     // SELECT COUNT(*) as count FROM photos WHERE trip_id = ?
     if (/SELECT\s+COUNT\(\*\)\s+as\s+count\s+FROM\s+photos\s+WHERE\s+trip_id\s*=\s*\?/i.test(sql)) {

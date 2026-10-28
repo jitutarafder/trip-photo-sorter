@@ -155,3 +155,36 @@ export async function cleanupExportPath(
     [id]
   );
 }
+
+/**
+ * Retrieves all exports that have an active zip_path or an in-flight status.
+ */
+export async function getIncompleteOrActiveExports(
+  db?: SQLiteDatabase
+): Promise<ExportRow[]> {
+  const database = await resolveDb(db);
+  return await database.getAllAsync<ExportRow>(
+    `SELECT * FROM exports
+     WHERE zip_path IS NOT NULL
+        OR status IN ('pending', 'zipping', 'ready', 'sharing');`
+  );
+}
+
+/**
+ * Marks in-flight exports as cancelled and clears their zip_path.
+ * Per AppFlow §2.2 & 06_Plan 1.7.
+ */
+export async function markInterruptedExportsAsCancelled(
+  db?: SQLiteDatabase
+): Promise<number> {
+  const database = await resolveDb(db);
+  const result = await database.runAsync(
+    `UPDATE exports
+     SET status = 'cancelled',
+         error = COALESCE(error, 'Interrupted by app termination'),
+         zip_path = NULL
+     WHERE status IN ('pending', 'zipping', 'ready', 'sharing')
+        OR zip_path IS NOT NULL;`
+  );
+  return result.changes;
+}
