@@ -13,6 +13,7 @@ export interface FaceCluster {
   id: string;
   itemIds: string[];
   centroid: Float32Array;
+  coverFaceId?: string;
 }
 
 export interface ClusteringResult {
@@ -227,10 +228,23 @@ export function clusterEmbeddings(
       const itemIds = clusterIndices.map((idx) => items[idx].id);
       const embeddings = clusterIndices.map((idx) => items[idx].embedding);
       const centroid = computeCentroid(embeddings);
+
+      // Select cover face as the face closest to the cluster centroid
+      let bestFaceId = itemIds[0];
+      let minCentroidDist = Infinity;
+      for (let i = 0; i < itemIds.length; i++) {
+        const dist = cosineDistance(embeddings[i], centroid);
+        if (dist < minCentroidDist) {
+          minCentroidDist = dist;
+          bestFaceId = itemIds[i];
+        }
+      }
+
       clusters.push({
         id: `person_${clusterCounter++}`,
         itemIds,
         centroid,
+        coverFaceId: bestFaceId,
       });
     } else {
       for (const idx of clusterIndices) {
@@ -240,4 +254,98 @@ export function clusterEmbeddings(
   }
 
   return { clusters, othersItemIds };
+}
+
+/**
+ * Converts a raw SQLite BLOB (Uint8Array) of 128 Float32 values (512 bytes)
+ * into an aligned Float32Array embedding vector.
+ */
+export function blobToEmbedding(blob: Uint8Array): Float32Array {
+  if (blob.byteLength === 0) {
+    return new Float32Array(0);
+  }
+  const copy = new Uint8Array(blob.byteLength);
+  copy.set(blob);
+  return new Float32Array(copy.buffer);
+}
+
+/**
+ * Converts a Float32Array embedding vector into a Uint8Array suitable for SQLite BLOB storage.
+ */
+export function embeddingToBlob(floats: Float32Array): Uint8Array {
+  return new Uint8Array(floats.buffer, floats.byteOffset, floats.byteLength);
+}
+
+export interface FaceClusteringInput {
+  id: string;
+  photo_id: string;
+  assignment?: 'auto' | 'manual';
+  quality_ok: number;
+  embedding: Uint8Array | Float32Array;
+}
+
+export interface TripClusteringResult {
+  clusters: FaceCluster[];
+  othersItemIds: string[];
+  skippedManualFaceIds: string[];
+}
+
+export interface ClusterTripFacesOptions {
+  threshold?: number;
+  minClusterSize?: number;
+}
+
+/**
+ * Pure domain face clustering for a trip:
+ * - Filters out manual face assignments (they are pinned and never changed).
+ * - Routes low-quality faces (quality_ok !== 1) to Others.
+ * - Clusters high-quality auto faces using average-linkage on cosine distance.
+ * - Clusters with < minClusterSize go to Others.
+ * - Selects cover face (closest face to centroid) for each cluster.
+ */
+export function clusterTripFaces(
+  faces: FaceClusteringInput[],
+  options: ClusterTripFacesOptions = {}
+): TripClusteringResult {
+  const threshold = options.threshold ?? CONFIG.CLUSTER_DISTANCE;
+  const minClusterSize = options.minClusterSize ?? CONFIG.MIN_CLUSTER_SIZE;
+
+  const skippedManualFaceIds: string[] = [];
+  const lowQualityOthersFaceIds: string[] = [];
+  const candidateItems: FaceEmbeddingItem[] = [];
+
+  for (const face of faces) {
+    if (face.assignment === 'manual') {
+      skippedManualFaceIds.push(face.id);
+      continue;
+    }
+
+    if (face.quality_ok !== 1) {
+      lowQualityOthersFaceIds.push(face.id);
+      continue;
+    }
+
+    const embedding =
+      face.embedding instanceof Float32Array
+        ? face.embedding
+        : blobToEmbedding(face.embedding);
+
+    candidateItems.push({
+      id: face.id,
+      embedding,
+      photoId: face.photo_id,
+    });
+  }
+
+  const { clusters, othersItemIds: singleFaceOthers } = clusterEmbeddings(
+    candidateItems,
+    threshold,
+    minClusterSize
+  );
+
+  return {
+    clusters,
+    othersItemIds: [...lowQualityOthersFaceIds, ...singleFaceOthers],
+    skippedManualFaceIds,
+  };
 }

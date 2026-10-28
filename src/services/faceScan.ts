@@ -27,6 +27,7 @@ import {
   type FaceLandmarksInput,
   type FaceQualityOptions,
 } from '../domain/faceQuality';
+import { clusterAndPersistTripFaces } from './clustering';
 
 export interface FaceDetectionBox {
   x: number;
@@ -71,6 +72,7 @@ export interface ScanTripFacesOptions {
   photoUriResolver?: (photoId: string) => Promise<string | null>;
   controller?: ScanController;
   qualityOptions?: FaceQualityOptions;
+  autoCluster?: boolean;
   onProgress?: (progress: ScanTripProgress) => void;
 }
 
@@ -549,7 +551,11 @@ export async function scanTripFaces(
       await updateTrip(tripId, { scan_status: 'paused' }, database);
     } else {
       // Completed all pending photos
-      await updateTrip(tripId, { scan_status: 'scanned' }, database);
+      if (options.autoCluster) {
+        await clusterAndPersistTripFaces(tripId, undefined, database);
+      } else {
+        await updateTrip(tripId, { scan_status: 'scanned' }, database);
+      }
     }
 
     options.onProgress?.({
