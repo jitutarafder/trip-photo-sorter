@@ -179,6 +179,57 @@ class InMemoryEngine {
     if (table.has(pk)) {
       if (/ON\s+CONFLICT/i.test(sql)) {
         const existing = table.get(pk)!;
+        const doUpdateMatch = /DO\s+UPDATE\s+SET\s+(.+)$/is.exec(sql);
+        if (doUpdateMatch) {
+          const updated = { ...existing };
+          const rawClause = doUpdateMatch[1].replace(/;+$/, '');
+          const assignments: string[] = [];
+          let currentAssign = '';
+          let parenDepth = 0;
+          for (let i = 0; i < rawClause.length; i++) {
+            const char = rawClause[i];
+            if (char === '(') {
+              parenDepth++;
+              currentAssign += char;
+            } else if (char === ')') {
+              parenDepth = Math.max(0, parenDepth - 1);
+              currentAssign += char;
+            } else if (char === ',' && parenDepth === 0) {
+              if (currentAssign.trim().length > 0) {
+                assignments.push(currentAssign.trim());
+              }
+              currentAssign = '';
+            } else {
+              currentAssign += char;
+            }
+          }
+          if (currentAssign.trim().length > 0) {
+            assignments.push(currentAssign.trim());
+          }
+
+          for (const assign of assignments) {
+            const eqIdx = assign.indexOf('=');
+            if (eqIdx === -1) continue;
+            const targetCol = assign.slice(0, eqIdx).trim();
+            const expr = assign.slice(eqIdx + 1).trim();
+            if (!targetCol || !expr) continue;
+            const coalesceMatch = /COALESCE\(\s*excluded\.([a-zA-Z0-9_]+)\s*,\s*([a-zA-Z0-9_.]+)\s*\)/i.exec(expr);
+            if (coalesceMatch) {
+              const excludedCol = coalesceMatch[1];
+              updated[targetCol] =
+                row[excludedCol] !== null && row[excludedCol] !== undefined
+                  ? row[excludedCol]
+                  : existing[targetCol];
+            } else if (expr.startsWith('excluded.')) {
+              const excludedCol = expr.replace('excluded.', '').trim();
+              updated[targetCol] = row[excludedCol];
+            } else {
+              updated[targetCol] = row[targetCol];
+            }
+          }
+          table.set(pk, updated);
+          return { changes: 1, lastInsertRowId: 1 };
+        }
         table.set(pk, { ...existing, ...row });
         return { changes: 1, lastInsertRowId: 1 };
       }
