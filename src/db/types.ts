@@ -11,6 +11,8 @@ export type ScanStatus =
   | 'scanned'
   | 'failed';
 
+export type TripScanStatus = ScanStatus;
+
 export type PhotoScanStatus = 'pending' | 'done' | 'failed' | 'skipped';
 
 export type FaceAssignment = 'auto' | 'manual';
