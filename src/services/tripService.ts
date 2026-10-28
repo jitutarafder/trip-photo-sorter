@@ -8,11 +8,13 @@ import {
   createTrip,
   updateTrip,
   deleteTrip,
+  getTripById,
 } from '../db/repositories/trips';
 import {
   getPhotosForTripDetection,
   assignPhotosToTrip,
   unassignPhotosFromTrip,
+  getPhotosByTripId,
 } from '../db/repositories/photos';
 import { getOrCreateOthersPerson } from '../db/repositories/people';
 import {
@@ -311,3 +313,74 @@ export function useTripDetection(): UseTripDetectionResult {
     detect,
   };
 }
+
+/**
+ * Adjusts the date boundaries of a trip (start_at, end_at),
+ * reassigning candidate photos within the range and unassigning photos outside the range.
+ * Marks the trip with `is_user_edited = 1` so it is protected from re-detection.
+ */
+export async function adjustTripDates(
+  tripId: string,
+  newStartAt: number,
+  newEndAt: number,
+  db?: SQLiteDatabase
+): Promise<TripRow> {
+  const database = db ?? (await getDatabase());
+  const now = Date.now();
+  let updatedTrip: TripRow | null = null;
+
+  await database.withTransactionAsync(async () => {
+    const trip = await getTripById(tripId, database);
+    if (!trip) {
+      throw new Error(`Trip ${tripId} not found`);
+    }
+
+    // 1. Unassign photos belonging to this trip that fall OUTSIDE [newStartAt, newEndAt]
+    await database.runAsync(
+      'UPDATE photos SET trip_id = NULL WHERE trip_id = ? AND (taken_at < ? OR taken_at > ?);',
+      [tripId, newStartAt, newEndAt]
+    );
+
+    // 2. Assign candidate photos in [newStartAt, newEndAt] to this trip (excluding protected user-edited trips)
+    const userEditedTrips = await getUserEditedTrips(database);
+    const protectedTripIds = userEditedTrips.map((t) => t.id).filter((id) => id !== tripId);
+
+    if (protectedTripIds.length > 0) {
+      const placeholders = protectedTripIds.map(() => '?').join(', ');
+      await database.runAsync(
+        `UPDATE photos SET trip_id = ?
+         WHERE taken_at >= ? AND taken_at <= ?
+           AND (trip_id IS NULL OR trip_id NOT IN (${placeholders}));`,
+        [tripId, newStartAt, newEndAt, ...protectedTripIds]
+      );
+    } else {
+      await database.runAsync(
+        'UPDATE photos SET trip_id = ? WHERE taken_at >= ? AND taken_at <= ?;',
+        [tripId, newStartAt, newEndAt]
+      );
+    }
+
+    // 3. Recalculate photo count and cover photo
+    const memberPhotos = await getPhotosByTripId(tripId, {}, database);
+    const photoCount = memberPhotos.length;
+    const coverPhotoId = memberPhotos.length > 0 ? memberPhotos[0].id : null;
+
+    // 4. Update trip row
+    await database.runAsync(
+      `UPDATE trips SET
+        start_at = ?, end_at = ?, photo_count = ?, cover_photo_id = ?,
+        is_user_edited = 1, updated_at = ?
+       WHERE id = ?;`,
+      [newStartAt, newEndAt, photoCount, coverPhotoId, now, tripId]
+    );
+
+    updatedTrip = await getTripById(tripId, database);
+  });
+
+  if (!updatedTrip) {
+    throw new Error(`Failed to update trip dates for ${tripId}`);
+  }
+
+  return updatedTrip;
+}
+
