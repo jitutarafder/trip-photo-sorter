@@ -10,6 +10,14 @@ public class AppleVisionModule: Module {
     AsyncFunction("detectFaces") { (imageUri: String) -> [[String: Any]] in
       return self.detectFacesInUri(imageUri)
     }
+
+    AsyncFunction("setExcludedFromBackup") { (filePath: String) -> Bool in
+      return self.setExcludedFromBackup(path: filePath)
+    }
+
+    AsyncFunction("isExcludedFromBackup") { (filePath: String) -> Bool in
+      return self.isExcludedFromBackup(path: filePath)
+    }
   }
 
   private func detectFacesInUri(_ imageUri: String) -> [[String: Any]] {
@@ -128,6 +136,56 @@ public class AppleVisionModule: Module {
     case .leftMirrored: return .leftMirrored
     case .rightMirrored: return .rightMirrored
     @unknown default: return .up
+    }
+  }
+
+  private func resolveFileUrl(_ path: String) -> URL {
+    if path.hasPrefix("file://"), let url = URL(string: path) {
+      return url
+    }
+    return URL(fileURLWithPath: path)
+  }
+
+  private func setExcludedFromBackup(path: String) -> Bool {
+    let fileUrl = resolveFileUrl(path)
+    let fileManager = FileManager.default
+
+    if !fileManager.fileExists(atPath: fileUrl.path) {
+      if path.hasSuffix("/") {
+        try? fileManager.createDirectory(at: fileUrl, withIntermediateDirectories: true, attributes: nil)
+      } else {
+        let parent = fileUrl.deletingLastPathComponent()
+        if !fileManager.fileExists(atPath: parent.path) {
+          try? fileManager.createDirectory(at: parent, withIntermediateDirectories: true, attributes: nil)
+        }
+      }
+    }
+
+    guard fileManager.fileExists(atPath: fileUrl.path) else {
+      return false
+    }
+
+    do {
+      var urlToSet = fileUrl
+      var resourceValues = URLResourceValues()
+      resourceValues.isExcludedFromBackup = true
+      try urlToSet.setResourceValues(resourceValues)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  private func isExcludedFromBackup(path: String) -> Bool {
+    let fileUrl = resolveFileUrl(path)
+    guard FileManager.default.fileExists(atPath: fileUrl.path) else {
+      return false
+    }
+    do {
+      let values = try fileUrl.resourceValues(forKeys: [.isExcludedFromBackupKey])
+      return values.isExcludedFromBackup ?? false
+    } catch {
+      return false
     }
   }
 }

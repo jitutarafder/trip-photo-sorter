@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { excludeDatabaseFromBackup } from './backup';
 
 export const DB_NAME = 'tripphotosorter.db';
 
@@ -6,6 +7,7 @@ let dbInstance: SQLite.SQLiteDatabase | null = null;
 
 /**
  * Opens a SQLite database instance and configures WAL mode and foreign key constraints.
+ * Also marks the database file and directory as excluded from iCloud/iTunes backup (04_TRD §6).
  *
  * @param dbName Database name or ':memory:' for tests
  */
@@ -13,6 +15,13 @@ export async function openDb(dbName: string = DB_NAME): Promise<SQLite.SQLiteDat
   const db = await SQLite.openDatabaseAsync(dbName);
   await db.execAsync('PRAGMA journal_mode = WAL;');
   await db.execAsync('PRAGMA foreign_keys = ON;');
+  if (dbName !== ':memory:') {
+    try {
+      await excludeDatabaseFromBackup(dbName);
+    } catch (err) {
+      console.warn('[openDb] Failed to set excluded-from-backup flag:', err);
+    }
+  }
   return db;
 }
 
