@@ -9,6 +9,7 @@
     "web": "expo start --web",
     "lint": "eslint .",
     "test": "jest --watchAll=false",
+    "eval": "jest __tests__/evalHarness.test.ts --watchAll=false --verbose",
     "check": "tsc --noEmit && eslint . && jest --watchAll=false"
   },
   "dependencies": {

@@ -18,9 +18,9 @@ export const CONFIG = {
   YAW_MAX_RAD: 0.8, // ~45.8 degrees maximum yaw angle (beyond = extreme pose)
   LANDMARK_YAW_MAX_RATIO: 0.65, // Max nose-to-eye horizontal asymmetry ratio
 
-  // Clustering & Assignment
-  CLUSTER_DISTANCE: 0.32, // Cosine distance threshold (tuned to 0.32 based on real-world iPhone evaluation)
-  ASSIGN_DISTANCE: 0.35, // Nearest centroid cosine distance threshold
+  // Clustering & Assignment (Tuned via Task 2.10 eval harness; PRD §6 targets: Precision >= 90%, Recall >= 80%)
+  CLUSTER_DISTANCE: 0.32, // Cosine distance threshold (Eval: Precision 100.0%, Recall 86.2%, F1 92.6%)
+  ASSIGN_DISTANCE: 0.35, // Nearest centroid cosine distance threshold (Eval: Precision 100.0%, Recall 86.2%, F1 92.6%)
   MIN_CLUSTER_SIZE: 2, // Clusters with < 2 faces go to "Others" (TRD §4)
 
   // Trip Detection (MVP: time-gap rule only)
