@@ -198,3 +198,22 @@ export async function deleteFacesByPhotoId(
   const database = await resolveDb(db);
   await database.runAsync('DELETE FROM faces WHERE photo_id = ?;', [photoId]);
 }
+
+/**
+ * Retrieves the clearest faces for a person, sorted by quality_ok DESC, blur DESC, quality DESC.
+ * Used in the Naming flow (02_AppFlow §3.5) to pick a representative face.
+ */
+export async function getClearestFacesForPerson(
+  personId: string,
+  limit = 8,
+  db?: SQLiteDatabase
+): Promise<FaceRow[]> {
+  const database = await resolveDb(db);
+  return await database.getAllAsync<FaceRow>(
+    `SELECT * FROM faces
+     WHERE person_id = ?
+     ORDER BY quality_ok DESC, blur DESC, quality DESC
+     LIMIT ?;`,
+    [personId, limit]
+  );
+}

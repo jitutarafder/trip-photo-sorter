@@ -268,3 +268,51 @@ export async function mergePeople(
     await database.runAsync('DELETE FROM people WHERE id = ?;', [sourcePersonId]);
   });
 }
+
+export interface PersonWithDetails extends PersonRow {
+  photo_count: number;
+  cover_photo_id: string | null;
+  cover_bbox_x: number | null;
+  cover_bbox_y: number | null;
+  cover_bbox_w: number | null;
+  cover_bbox_h: number | null;
+}
+
+/**
+ * Retrieves all people for a trip with photo counts and cover face coordinates.
+ * Sorted by is_others ASC, photo_count DESC, created_at ASC (02_AppFlow §3.5).
+ */
+export async function getPeopleWithDetails(
+  tripId: string,
+  db?: SQLiteDatabase
+): Promise<PersonWithDetails[]> {
+  const database = await resolveDb(db);
+  return await database.getAllAsync<PersonWithDetails>(
+    `SELECT 
+      p.id,
+      p.trip_id,
+      p.name,
+      p.is_others,
+      p.cover_face_id,
+      p.centroid,
+      p.created_at,
+      COUNT(DISTINCT ph.id) AS photo_count,
+      cf.photo_id AS cover_photo_id,
+      cf.bbox_x AS cover_bbox_x,
+      cf.bbox_y AS cover_bbox_y,
+      cf.bbox_w AS cover_bbox_w,
+      cf.bbox_h AS cover_bbox_h
+    FROM people p
+    LEFT JOIN faces f ON f.person_id = p.id
+    LEFT JOIN photos ph ON ph.id = f.photo_id AND ph.excluded = 0
+      AND ph.id NOT IN (SELECT photo_id FROM person_photos_excluded WHERE person_id = p.id)
+    LEFT JOIN faces cf ON cf.id = COALESCE(
+      p.cover_face_id,
+      (SELECT id FROM faces WHERE person_id = p.id ORDER BY quality_ok DESC, blur DESC LIMIT 1)
+    )
+    WHERE p.trip_id = ?
+    GROUP BY p.id
+    ORDER BY p.is_others ASC, photo_count DESC, p.created_at ASC;`,
+    [tripId]
+  );
+}
