@@ -42,7 +42,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 - [x] 2.11 Benchmark 300-photo trip: scan time + peak memory; record results
 
 ## Phase 3 — UI Integration (core loop first: trip → scan → name → export)
-- [ ] 3.1 Base components: Button, TextField, Banner, EmptyState, Skeleton, ProgressRing (all states, 03_UI_Spec)
+- [x] 3.1 Base components: Button, TextField, Banner, EmptyState, Skeleton, ProgressRing (all states, 03_UI_Spec)
 - [ ] 3.2 Root layout, theme provider, error boundary, fonts
 - [ ] 3.3 Onboarding + Permission Denied view
 - [ ] 3.4 Home (Trips): FlashList, empty/loading/error
@@ -119,3 +119,4 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-28 | 2.9 | Implemented free-tier gate (50 photos/trip), feature flag ENABLE_PRO_GATE (default OFF = everything unlocked), purchases service stub in src/services/purchases.ts (unlockProStub, restorePurchasesStub, getTripFreeTierStatus, hooks), integrated with faceScan.ts and exporter.ts, with 19 tests
 2026-10-28 | 2.10 | Implemented offline eval harness in src/domain/evalHarness.ts with pairwise precision/recall/F1 metrics, parameter sweeps, and benchmark generator; gitignored eval/ folder; scripts/runEval.ts and npm run eval; tuned CLUSTER_DISTANCE=0.32 (Precision 100.0%, Recall 86.2%, F1 92.6%) and ASSIGN_DISTANCE=0.35 (Precision 100.0%, Recall 86.2%, F1 92.6%), exceeding PRD §6 targets (P>=90%, R>=80%); added 12 tests
 2026-10-28 | 2.11 | Benchmarked 300-photo trip (src/services/tripBenchmark.ts, __tests__/benchmark.test.ts, App.tsx): total time 12.5 s (< 180 s target), throughput 24.0 photos/s (>= 5 photos/s target), peak memory 76.9 MB (< 400 MB target), 0 memory leaks (+4.9 MB delta), 643 faces found in 15 clusters; all PRD §6 targets PASSED
+2026-10-28 | 3.1 | Implemented base UI components in src/components/ui (Button, TextField, Banner, EmptyState, Skeleton, ProgressRing) covering all states, variants, motions, tokens from 03_UI_Spec; added 20 tests in __tests__/uiComponents.test.tsx
