@@ -26,6 +26,8 @@ export interface ProProductDetails {
 
 export interface UseProStatusResult {
   isPro: boolean;
+  isPurchased: boolean;
+  isGateEnabled: boolean;
   isLoading: boolean;
   error: Error | null;
   unlockPro: () => Promise<boolean>;
@@ -202,15 +204,21 @@ export function useProStatus(
   overrideGate?: boolean
 ): UseProStatusResult {
   const [proStatus, setProStatusState] = useState<boolean>(true);
+  const [isPurchasedState, setIsPurchasedState] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+
+  const isGateEnabled = overrideGate !== undefined ? overrideGate : CONFIG.ENABLE_PRO_GATE;
 
   const fetchStatus = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const pro = await isProUser(db, overrideGate);
+      const database = db ?? (await getDatabase());
+      const pro = await isProUser(database, overrideGate);
       setProStatusState(pro);
+      const purchased = await isPro(database);
+      setIsPurchasedState(purchased);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
@@ -246,6 +254,8 @@ export function useProStatus(
 
   return {
     isPro: proStatus,
+    isPurchased: isPurchasedState,
+    isGateEnabled,
     isLoading,
     error,
     unlockPro,
