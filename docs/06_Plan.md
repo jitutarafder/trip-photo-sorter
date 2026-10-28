@@ -44,7 +44,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 ## Phase 3 — UI Integration (core loop first: trip → scan → name → export)
 - [x] 3.1 Base components: Button, TextField, Banner, EmptyState, Skeleton, ProgressRing (all states, 03_UI_Spec)
 - [x] 3.2 Root layout, theme provider, error boundary, fonts
-- [ ] 3.3 Onboarding + Permission Denied view
+- [x] 3.3 Onboarding + Permission Denied view
 - [ ] 3.4 Home (Trips): FlashList, empty/loading/error
 - [ ] 3.5 Trip Detail: photo grid, rename, adjust dates, merge, hide
 - [ ] 3.6 Scan Progress modal (progress, cancel, resume, keep-awake)
@@ -121,3 +121,4 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-28 | 2.11 | Benchmarked 300-photo trip (src/services/tripBenchmark.ts, __tests__/benchmark.test.ts, App.tsx): total time 12.5 s (< 180 s target), throughput 24.0 photos/s (>= 5 photos/s target), peak memory 76.9 MB (< 400 MB target), 0 memory leaks (+4.9 MB delta), 643 faces found in 15 clusters; all PRD §6 targets PASSED
 2026-10-28 | 3.1 | Implemented base UI components in src/components/ui (Button, TextField, Banner, EmptyState, Skeleton, ProgressRing) covering all states, variants, motions, tokens from 03_UI_Spec; added 20 tests in __tests__/uiComponents.test.tsx
 2026-10-28 | 3.2 | Implemented root layout in app/_layout.tsx with Inter font loading via @expo-google-fonts/inter, splash screen handling, ThemeProvider in src/theme/ThemeProvider.tsx, ErrorBoundary with ErrorFallback in src/components/ErrorBoundary.tsx, launch-time orphan sweeps, and 8 tests in __tests__/rootLayout.test.tsx
+2026-10-28 | 3.3 | Implemented onboarding screen (app/onboarding.tsx) with 3 benefit cards, "Nothing leaves your phone" privacy text, Allow Photo Access button, Full/Limited/Denied state handling, Permission Denied view with Open Settings, launch routing check in app/index.tsx, and 16 unit tests in __tests__/onboarding.test.tsx
