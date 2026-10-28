@@ -342,3 +342,42 @@ export async function getPersonPhotosWithExclusions(
     [personId, personId]
   );
 }
+
+export interface ExportPersonSummary extends PersonRow {
+  photo_count: number;
+  solo_photo_count: number;
+  cover_photo_id: string | null;
+}
+
+/**
+ * Retrieves people summary with both total and solo-only photo counts for export review.
+ * Sorted by is_others ASC, photo_count DESC, created_at ASC (02_AppFlow §3.7).
+ */
+export async function getExportPeopleSummary(
+  tripId: string,
+  db?: SQLiteDatabase
+): Promise<ExportPersonSummary[]> {
+  const database = await resolveDb(db);
+  return await database.getAllAsync<ExportPersonSummary>(
+    `SELECT 
+       p.id,
+       p.trip_id,
+       p.name,
+       p.is_others,
+       p.cover_face_id,
+       p.centroid,
+       p.created_at,
+       COUNT(DISTINCT CASE WHEN ph.id IS NOT NULL THEN ph.id END) AS photo_count,
+       COUNT(DISTINCT CASE WHEN ph.face_count = 1 THEN ph.id END) AS solo_photo_count,
+       cf.photo_id AS cover_photo_id
+     FROM people p
+     LEFT JOIN faces f ON f.person_id = p.id
+     LEFT JOIN photos ph ON ph.id = f.photo_id AND ph.excluded = 0 
+       AND ph.id NOT IN (SELECT photo_id FROM person_photos_excluded WHERE person_id = p.id)
+     LEFT JOIN faces cf ON cf.id = p.cover_face_id
+     WHERE p.trip_id = ?
+     GROUP BY p.id
+     ORDER BY p.is_others ASC, photo_count DESC, p.created_at ASC;`,
+    [tripId]
+  );
+}
