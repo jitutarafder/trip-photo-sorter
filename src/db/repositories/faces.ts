@@ -217,3 +217,23 @@ export async function getClearestFacesForPerson(
     [personId, limit]
   );
 }
+
+/**
+ * Retrieves face IDs belonging to a person for a given list of photo IDs.
+ * Used when moving or removing selected photos from a person (02_AppFlow §3.6).
+ */
+export async function getFaceIdsForPersonPhotos(
+  personId: string,
+  photoIds: string[],
+  db?: SQLiteDatabase
+): Promise<string[]> {
+  if (photoIds.length === 0) return [];
+  const database = await resolveDb(db);
+  const placeholders = photoIds.map(() => '?').join(', ');
+  const rows = await database.getAllAsync<{ id: string }>(
+    `SELECT id FROM faces 
+     WHERE person_id = ? AND photo_id IN (${placeholders});`,
+    [personId, ...photoIds]
+  );
+  return rows.map((r) => r.id);
+}

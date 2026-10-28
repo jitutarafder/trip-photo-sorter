@@ -316,3 +316,29 @@ export async function getPeopleWithDetails(
     [tripId]
   );
 }
+
+export interface PersonPhotoItem extends PhotoRow {
+  is_person_excluded: number;
+}
+
+/**
+ * Retrieves all distinct, non-globally-excluded photos containing faces for a person,
+ * including per-person exclusion status (02_AppFlow §3.6).
+ */
+export async function getPersonPhotosWithExclusions(
+  personId: string,
+  db?: SQLiteDatabase
+): Promise<PersonPhotoItem[]> {
+  const database = await resolveDb(db);
+  return await database.getAllAsync<PersonPhotoItem>(
+    `SELECT DISTINCT 
+       p.*,
+       CASE WHEN ppe.photo_id IS NOT NULL THEN 1 ELSE 0 END AS is_person_excluded
+     FROM photos p
+     JOIN faces f ON f.photo_id = p.id
+     LEFT JOIN person_photos_excluded ppe ON ppe.person_id = ? AND ppe.photo_id = p.id
+     WHERE f.person_id = ? AND p.excluded = 0
+     ORDER BY p.taken_at ASC;`,
+    [personId, personId]
+  );
+}

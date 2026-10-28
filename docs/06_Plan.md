@@ -49,7 +49,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 - [x] 3.5 Trip Detail: photo grid, rename, adjust dates, merge, hide
 - [x] 3.6 Scan Progress modal (progress, cancel, resume, keep-awake)
 - [x] 3.7 People screen (plain grid) + naming flow: tap bubble → pick a clear face → name → app re-assigns others (2.6), shows "n photos added"
-- [ ] 3.8 Person Detail: name validation, multi-select, move/remove/exclude, merge
+- [x] 3.8 Person Detail: name validation, multi-select, move/remove/exclude, merge
 - [ ] 3.9 Export Review: per-person mode toggle (Photos ≤ 30 / ZIP), solo-only toggle, size warnings, batch queue, share
 - [ ] 3.10 Paywall UI + restore button, hidden behind feature flag
 - [ ] 3.11 Settings (permissions, re-sync, reset data, privacy text)
@@ -126,5 +126,6 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-28 | 3.5 | Implemented Trip Detail screen in app/trip/[id]/index.tsx (FlashList 3-col photo grid, PhotoTile component with 4 states, primary button by scan_status, free-tier banner, empty state, and modals for rename, adjust dates, merge trips, and hide) with 18 unit tests in __tests__/tripDetail.test.tsx
 2026-10-29 | 3.6 | Implemented Scan Progress modal in app/trip/[id]/scan.tsx (progress ring, n/total photos, faces found counter, ETA calculation, keep-awake, background auto-pause and resume, zero faces handling with tips, and auto-navigation to people screen) with 10 unit tests in __tests__/scanModal.test.tsx
 2026-10-29 | 3.7 | Implemented People screen (app/trip/[id]/people.tsx) with plain grid of PersonBubbles (avatar crop, dashed ring for unnamed, Others pinned last, count badge), Naming flow bottom sheet (representative face picker, real-time name validation, atomic name-first assignment, "+n photos added" feedback banner), Merge mode (select 2 -> merge via mergePeople), and Export navigation, with 20 unit/component tests in __tests__/peopleScreen.test.tsx
+2026-10-29 | 3.8 | Implemented Person Detail screen in app/person/[id].tsx with editable name validation (1-40 chars, no illegal chars, unique check), FlashList 3-col photo grid, multi-select batch action bar (select all, move to person, remove to Others, per-person exclude/include toggle), and whole person merge flow, with 14 unit/integration tests in __tests__/personDetail.test.tsx
 
 
