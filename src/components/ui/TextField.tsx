@@ -74,6 +74,7 @@ export const TextField: React.FC<TextFieldProps> = ({
     <View style={[styles.wrapper, containerStyle]}>
       {label && (
         <Text
+          maxFontSizeMultiplier={1.3}
           style={[
             styles.label,
             {
@@ -111,6 +112,7 @@ export const TextField: React.FC<TextFieldProps> = ({
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           editable={!disabled}
+          maxFontSizeMultiplier={1.3}
           onFocus={(e) => {
             setIsFocused(true);
             onFocus?.(e);
@@ -151,6 +153,7 @@ export const TextField: React.FC<TextFieldProps> = ({
       {hasError ? (
         <Text
           testID={`${testID ?? 'text-field'}-error`}
+          maxFontSizeMultiplier={1.3}
           style={[
             styles.helperText,
             {
@@ -164,6 +167,7 @@ export const TextField: React.FC<TextFieldProps> = ({
         </Text>
       ) : helperText ? (
         <Text
+          maxFontSizeMultiplier={1.3}
           style={[
             styles.helperText,
             {

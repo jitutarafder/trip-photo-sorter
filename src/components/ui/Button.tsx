@@ -12,6 +12,7 @@ import {
   type GestureResponderEvent,
 } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -55,9 +56,10 @@ export const Button: React.FC<ButtonProps> = ({
 }) => {
   const { colors, tokens } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const reduceMotion = useReduceMotion();
 
   const handlePressIn = () => {
-    if (disabled || loading) return;
+    if (disabled || loading || reduceMotion) return;
     if (process.env.NODE_ENV === 'test') {
       scaleAnim.setValue(tokens.motion.pressScale);
       return;
@@ -70,7 +72,7 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   const handlePressOut = () => {
-    if (disabled || loading) return;
+    if (disabled || loading || reduceMotion) return;
     if (process.env.NODE_ENV === 'test') {
       scaleAnim.setValue(1);
       return;
@@ -231,6 +233,7 @@ export const Button: React.FC<ButtonProps> = ({
               children
             ) : title ? (
               <Text
+                maxFontSizeMultiplier={1.3}
                 style={[
                   styles.baseText,
                   sizeStyles.text,

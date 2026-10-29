@@ -1,13 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Animated,
-  AccessibilityInfo,
   type StyleProp,
   type ViewStyle,
   type DimensionValue,
 } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 
 export interface SkeletonProps {
   width?: DimensionValue;
@@ -33,32 +33,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 }) => {
   const { colors, tokens } = useTheme();
   const opacityAnim = useRef(new Animated.Value(0.35)).current;
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'test') {
-      return;
-    }
-    // Check Reduce Motion accessibility setting
-    let isMounted = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (isMounted) {
-        setReduceMotion(enabled);
-      }
-    });
-
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      (enabled) => {
-        setReduceMotion(enabled);
-      }
-    );
-
-    return () => {
-      isMounted = false;
-      subscription?.remove();
-    };
-  }, []);
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
     if (reduceMotion || process.env.NODE_ENV === 'test') {

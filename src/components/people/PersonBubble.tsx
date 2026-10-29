@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Users, User, Check } from 'lucide-react-native';
 import { useTheme } from '../../hooks/useTheme';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { getFaceThumbnail } from '../../services/faceThumbnail';
 
 export interface PersonBubbleData {
@@ -60,6 +61,7 @@ export const PersonBubble: React.FC<PersonBubbleProps> = ({
   size = 76,
 }) => {
   const { colors, tokens } = useTheme();
+  const reduceMotion = useReduceMotion();
   const [resolvedUri, setResolvedUri] = useState<string | null>(directFaceUri ?? null);
   const isUnnamed = !person.is_others && (!person.name || person.name.trim().length === 0);
   const isOthers = person.is_others === 1;
@@ -145,7 +147,7 @@ export const PersonBubble: React.FC<PersonBubbleProps> = ({
       onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.container,
-        pressed && styles.pressed,
+        pressed && !reduceMotion && styles.pressed,
         style,
       ]}
     >
@@ -209,6 +211,7 @@ export const PersonBubble: React.FC<PersonBubbleProps> = ({
           ]}
         >
           <Text
+            maxFontSizeMultiplier={1.3}
             style={[
               tokens.typography.micro,
               { color: colors.textMuted },
@@ -224,6 +227,7 @@ export const PersonBubble: React.FC<PersonBubbleProps> = ({
         testID={`${testID}-name`}
         numberOfLines={1}
         ellipsizeMode="tail"
+        maxFontSizeMultiplier={1.3}
         style={[
           tokens.typography.caption,
           styles.nameText,

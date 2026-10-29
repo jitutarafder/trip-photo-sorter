@@ -64,7 +64,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 - [x] 4.6 1 000+ photo trip: memory + scroll fps
 - [x] 4.7 Duplicate/invalid/long/emoji person names
 - [x] 4.8 No-face photos, 15+ face group photos, sunglasses, side profiles; record precision/recall vs PRD targets
-- [ ] 4.9 Dark/light, Dynamic Type 130 %, Reduce Motion
+- [x] 4.9 Dark/light, Dynamic Type 130 %, Reduce Motion
 - [ ] 4.10 Reset data → clean state
 
 ## Phase 5 — Antigravity & Polish (cut first if late)
@@ -138,6 +138,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-29 | 4.6 | Benchmarked and verified 1,000+ photo trip scaling: optimized UPGMA hierarchical clustering with Lance-Williams (30x faster, peak RAM < 165 MB << 400 MB target), batched SQLite face assignments in 500-item chunks, verified FlashList windowing and smooth multi-select, with 7 tests in __tests__/edgeCase1000PhotoTrip.test.tsx
 2026-10-29 | 4.7 | Verified and strengthened person name validation: case-insensitive duplicate check, cross-trip scoping, 1-40 char boundaries, control char blocking, Unicode/emoji safety in validatePersonName and sanitizeFilename, SQLite UNIQUE constraint in mock, fixed mergePeople delete-before-adopt order, with 18 tests in __tests__/edgeCasePersonNames.test.tsx
 2026-10-29 | 4.8 | Verified no-face photos (0 faces, graceful empty state), 15+ face group photos (cannot-link constraint strictly enforced in clustering & assignment, solo-only filter exclusion), sunglasses (robust centroid assignment, no cross-person contamination), and side profiles (extreme yaw >= 0.8 rad quality_ok=0 exclusion from centroids); benchmarked 186-face complex dataset meeting PRD §6 targets: Precision 100.0% (target >= 90%), Recall 83.2% (target >= 80%), F1 90.8%, with 14 tests in __tests__/edgeCaseComplexPhotosAndEval.test.tsx
+2026-10-29 | 4.9 | Verified Dark/Light themes (WCAG AA contrast >= 4.5:1, elevation styles), Dynamic Type 130% (maxFontSizeMultiplier=1.3, minTouchTarget >= 44x44), and Reduce Motion (useReduceMotion hook, static Skeleton, disabled scale on Button, TripCard, and PersonBubble, static ProgressRing) with 13 tests in __tests__/edgeCaseThemeAndAccessibility.test.tsx
 
 
 

@@ -14,6 +14,7 @@ import { Check, Compass, Image as ImageIcon } from 'lucide-react-native';
 import type { TripRow, TripScanStatus } from '../../db/types';
 import { formatTripDateRange } from '../../domain/tripDetection';
 import { useTheme } from '../../hooks/useTheme';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 
 export interface TripCardProps {
   trip: TripRow;
@@ -42,6 +43,7 @@ export const TripCard: React.FC<TripCardProps> = ({
   const { colors, tokens } = useTheme();
   const [coverUri, setCoverUri] = useState<string | null>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const reduceMotion = useReduceMotion();
 
   // Resolve cover photo URI asynchronously via MediaLibrary
   useEffect(() => {
@@ -70,6 +72,7 @@ export const TripCard: React.FC<TripCardProps> = ({
   }, [trip.cover_photo_id]);
 
   const handlePressIn = () => {
+    if (reduceMotion) return;
     Animated.timing(scaleAnim, {
       toValue: 0.97,
       duration: 90,
@@ -78,6 +81,7 @@ export const TripCard: React.FC<TripCardProps> = ({
   };
 
   const handlePressOut = () => {
+    if (reduceMotion) return;
     Animated.spring(scaleAnim, {
       toValue: 1,
       damping: 15,
@@ -101,7 +105,9 @@ export const TripCard: React.FC<TripCardProps> = ({
             ]}
           >
             <Check size={12} color={colors.success} strokeWidth={2.5} style={styles.badgeIcon} />
-            <Text style={[styles.badgeText, { color: colors.success }]}>Scanned</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.badgeText, { color: colors.success }]}>
+              Scanned
+            </Text>
           </View>
         );
       case 'scanning':
@@ -116,7 +122,9 @@ export const TripCard: React.FC<TripCardProps> = ({
               },
             ]}
           >
-            <Text style={[styles.badgeText, { color: colors.primary }]}>Scanning...</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.badgeText, { color: colors.primary }]}>
+              Scanning...
+            </Text>
           </View>
         );
       case 'clustering':
@@ -131,7 +139,9 @@ export const TripCard: React.FC<TripCardProps> = ({
               },
             ]}
           >
-            <Text style={[styles.badgeText, { color: colors.accent }]}>Clustering...</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.badgeText, { color: colors.accent }]}>
+              Clustering...
+            </Text>
           </View>
         );
       case 'paused':
@@ -146,7 +156,9 @@ export const TripCard: React.FC<TripCardProps> = ({
               },
             ]}
           >
-            <Text style={[styles.badgeText, { color: colors.warning }]}>Paused</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.badgeText, { color: colors.warning }]}>
+              Paused
+            </Text>
           </View>
         );
       case 'failed':
@@ -161,7 +173,9 @@ export const TripCard: React.FC<TripCardProps> = ({
               },
             ]}
           >
-            <Text style={[styles.badgeText, { color: colors.danger }]}>Failed</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.badgeText, { color: colors.danger }]}>
+              Failed
+            </Text>
           </View>
         );
       case 'not_scanned':
@@ -177,7 +191,7 @@ export const TripCard: React.FC<TripCardProps> = ({
               },
             ]}
           >
-            <Text style={[styles.badgeText, { color: 'rgba(255, 255, 255, 0.85)' }]}>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.badgeText, { color: 'rgba(255, 255, 255, 0.85)' }]}>
               Not Scanned
             </Text>
           </View>
@@ -242,7 +256,9 @@ export const TripCard: React.FC<TripCardProps> = ({
             ]}
           >
             <ImageIcon size={12} color="#FFFFFF" strokeWidth={2} style={styles.badgeIcon} />
-            <Text style={styles.photoCountText}>{photoCountString}</Text>
+            <Text maxFontSizeMultiplier={1.3} style={styles.photoCountText}>
+              {photoCountString}
+            </Text>
           </View>
 
           {renderScanBadge(trip.scan_status)}
@@ -259,6 +275,7 @@ export const TripCard: React.FC<TripCardProps> = ({
           ]}
         >
           <Text
+            maxFontSizeMultiplier={1.3}
             style={[
               styles.tripName,
               {
@@ -273,6 +290,7 @@ export const TripCard: React.FC<TripCardProps> = ({
           </Text>
 
           <Text
+            maxFontSizeMultiplier={1.3}
             style={[
               styles.tripDates,
               {

@@ -41,6 +41,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       {icon && <View style={styles.iconWrapper}>{icon}</View>}
 
       <Text
+        maxFontSizeMultiplier={1.3}
         style={[
           styles.title,
           {
@@ -55,6 +56,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       </Text>
 
       <Text
+        maxFontSizeMultiplier={1.3}
         style={[
           styles.body,
           {

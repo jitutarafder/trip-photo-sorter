@@ -101,6 +101,7 @@ export const Banner: React.FC<BannerProps> = ({
       <View style={styles.textContainer}>
         {title && (
           <Text
+            maxFontSizeMultiplier={1.3}
             style={[
               styles.title,
               {
@@ -115,6 +116,7 @@ export const Banner: React.FC<BannerProps> = ({
           </Text>
         )}
         <Text
+          maxFontSizeMultiplier={1.3}
           style={[
             styles.message,
             {
@@ -135,6 +137,7 @@ export const Banner: React.FC<BannerProps> = ({
             style={styles.actionBtn}
           >
             <Text
+              maxFontSizeMultiplier={1.3}
               style={[
                 styles.actionText,
                 {
