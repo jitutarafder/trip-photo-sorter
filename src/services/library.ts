@@ -33,8 +33,17 @@ export interface UseLibraryPermissionResult extends LibraryPermissionState {
  * 'full' | 'limited' | 'denied' (or 'undetermined' prior to user action).
  */
 export function mapPermissionResponse(
-  response: Pick<MediaLibrary.PermissionResponse, 'status' | 'granted' | 'canAskAgain' | 'accessPrivileges'>,
+  response?: Pick<MediaLibrary.PermissionResponse, 'status' | 'granted' | 'canAskAgain' | 'accessPrivileges'> | null,
 ): LibraryPermissionState {
+  if (!response) {
+    return {
+      status: 'undetermined',
+      granted: false,
+      canAskAgain: true,
+      accessPrivileges: undefined,
+    };
+  }
+
   let mappedStatus: LibraryPermissionStatus;
 
   if (response.accessPrivileges === 'limited') {

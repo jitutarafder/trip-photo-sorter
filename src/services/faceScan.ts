@@ -29,6 +29,7 @@ import {
 } from '../domain/faceQuality';
 import { clusterAndPersistTripFaces } from './clustering';
 import { getTripFreeTierStatus } from './purchases';
+import { getLibraryPermissionStatus } from './library';
 
 export interface FaceDetectionBox {
   x: number;
@@ -90,6 +91,22 @@ export interface ScanTripFacesResult {
 }
 
 /**
+ * Checks if an error thrown during scanning is caused by photo library permission revocation.
+ */
+export function isPermissionRevokedError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes('permission') ||
+    msg.includes('access denied') ||
+    msg.includes('unauthorized') ||
+    msg.includes('not granted') ||
+    msg.includes('restricted') ||
+    msg.includes('denied')
+  );
+}
+
+/**
  * Controller to signal cancellation or pausing during a face scan.
  */
 export class ScanController {
@@ -144,7 +161,10 @@ export async function defaultPhotoUriResolver(photoId: string): Promise<string |
   try {
     const asset = await MediaLibrary.getAssetInfoAsync(photoId);
     return asset?.localUri || asset?.uri || null;
-  } catch {
+  } catch (err) {
+    if (isPermissionRevokedError(err)) {
+      throw err;
+    }
     return null;
   }
 }
@@ -370,6 +390,27 @@ export async function scanTripFaces(
     };
   }
 
+  // Verify photo library permission before processing if using default resolver
+  if (!options.photoUriResolver) {
+    try {
+      const perm = await getLibraryPermissionStatus();
+      if (!perm.granted) {
+        await updateTrip(tripId, { scan_status: 'paused' }, database);
+        return {
+          status: 'paused',
+          scannedCount: 0,
+          facesFound: 0,
+          skippedCount: 0,
+          failedCount: 0,
+          totalPhotos,
+          error: new Error('Photo library permission not granted'),
+        };
+      }
+    } catch {
+      // If permission query throws or is unmocked in tests, proceed
+    }
+  }
+
   // Check free-tier gate before scanning (PRD US-11, Plan 2.9)
   const freeTierStatus = await getTripFreeTierStatus(tripId, database, options.enableProGate);
   if (freeTierStatus.requiresPaywall) {
@@ -413,6 +454,8 @@ export async function scanTripFaces(
   let skippedCount = 0;
   let failedCount = 0;
   let paywallHit = false;
+  let permissionRevoked = false;
+  let permissionRevokedError: Error | undefined = undefined;
 
   try {
     let nextIndex = 0;
@@ -558,6 +601,13 @@ export async function scanTripFaces(
           scannedCount++;
           facesFound += photoFaces.length;
         } catch (photoErr) {
+          if (isPermissionRevokedError(photoErr)) {
+            console.warn(`[faceScan] Photo library permission revoked while processing photo ${photo.id}:`, photoErr);
+            permissionRevoked = true;
+            permissionRevokedError = photoErr instanceof Error ? photoErr : new Error(String(photoErr));
+            controller.pause();
+            break;
+          }
           // Error on single photo: mark scan_status='failed', continue next photo
           console.warn(`[faceScan] Error processing photo ${photo.id}:`, photoErr);
           await updatePhotoScanStatus(photo.id, 'failed', 0, database);
@@ -572,7 +622,10 @@ export async function scanTripFaces(
 
     // Determine final status
     let finalStatus: ScanTripFacesResult['status'] = 'completed';
-    if (paywallHit) {
+    if (permissionRevoked) {
+      finalStatus = 'paused';
+      await updateTrip(tripId, { scan_status: 'paused' }, database);
+    } else if (paywallHit) {
       finalStatus = 'paused';
       await updateTrip(tripId, { scan_status: 'paused' }, database);
     } else if (controller.isCancelled) {
@@ -604,6 +657,7 @@ export async function scanTripFaces(
       failedCount,
       totalPhotos,
       paywallRequired: paywallHit,
+      error: permissionRevokedError,
     };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));

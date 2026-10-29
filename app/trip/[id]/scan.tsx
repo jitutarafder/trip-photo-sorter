@@ -21,7 +21,8 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useTheme } from '../../../src/theme';
 import { Button, ProgressRing, Banner } from '../../../src/components/ui';
 import { getTripById } from '../../../src/db/repositories/trips';
-import { useFaceScan, type ScanTripFacesResult } from '../../../src/services/faceScan';
+import { useFaceScan, isPermissionRevokedError, type ScanTripFacesResult } from '../../../src/services/faceScan';
+import { useLibraryPermission } from '../../../src/hooks/useLibraryPermission';
 
 const DEFAULT_SCAN_OPTIONS = {
   keepAwake: true,
@@ -66,6 +67,10 @@ export default function ScanProgressModal() {
     resumeScan,
     cancelScan,
   } = useFaceScan(id ?? '', DEFAULT_SCAN_OPTIONS);
+
+  const { status: permissionStatus, openSettings } = useLibraryPermission();
+  const isPermissionRevoked =
+    permissionStatus === 'denied' || isPermissionRevokedError(scanError ?? scanResult?.error);
 
   // Calculate ETA string from start time and current progress
   const getEtaString = useCallback((): string => {
@@ -449,6 +454,22 @@ export default function ScanProgressModal() {
         </Text>
 
         {/* Progress snapshot */}
+        {isPermissionRevoked && (
+          <View style={[styles.bannerWrapper, { width: '100%', marginBottom: tokens.spacing.md }]}>
+            <Banner
+              testID="permission-revoked-banner"
+              variant="error"
+              title="Photo Access Revoked"
+              message="Access to your photo library was revoked. Grant access in iOS Settings to resume scanning."
+              action={{
+                label: 'Open Settings',
+                onPress: () => {
+                  void openSettings();
+                },
+              }}
+            />
+          </View>
+        )}
         <View style={styles.pausedStats}>
           <Text
             testID="paused-progress-text"
@@ -769,5 +790,9 @@ const styles = StyleSheet.create({
   bannerSpacing: {
     marginBottom: 20,
     width: '100%',
+  },
+  bannerWrapper: {
+    width: '100%',
+    marginBottom: 16,
   },
 });
