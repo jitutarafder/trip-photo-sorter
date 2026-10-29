@@ -34,6 +34,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-splash-screen",
       "expo-sqlite",
       "expo-font",
       "react-native-zip-archive",

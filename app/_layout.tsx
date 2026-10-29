@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Stack, SplashScreen } from 'expo-router';
@@ -16,9 +17,13 @@ import { useOrphanSweep } from '../src/hooks/useOrphanSweep';
 import { reconcileInterruptedTripScans } from '../src/db/repositories/trips';
 
 // Prevent splash screen from auto-hiding until fonts are loaded
-SplashScreen.preventAutoHideAsync().catch(() => {
-  /* ignore error in tests or unsupported environments */
-});
+try {
+  SplashScreen.preventAutoHideAsync().catch(() => {
+    /* ignore error in tests or unsupported environments */
+  });
+} catch {
+  /* ignore */
+}
 
 /**
  * Route-level ErrorBoundary for Expo Router (02_AppFlow §4).
@@ -151,6 +156,16 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+  const [fontTimeout, setFontTimeout] = React.useState(false);
+
+  // Safety fallback: if fonts take longer than 2.5s, don't block app launch
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFontTimeout(true);
+      SplashScreen.hideAsync().catch(() => {});
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Launch-time orphan export sweep (04_TRD §6, 05_Schema §4)
   useOrphanSweep();
@@ -163,15 +178,15 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    if (fontsLoaded || fontError || fontTimeout) {
       SplashScreen.hideAsync().catch(() => {
         /* ignore */
       });
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, fontTimeout]);
 
-  // Keep splash screen visible until fonts are loaded (unless font loading failed)
-  if (!fontsLoaded && !fontError) {
+  // Keep splash screen visible until fonts are loaded (unless font loading failed or timed out)
+  if (!fontsLoaded && !fontError && !fontTimeout) {
     return null;
   }
 

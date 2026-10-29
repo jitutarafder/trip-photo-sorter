@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { excludeDatabaseFromBackup } from './backup';
+import { runMigrations, runMigrationsSync } from './migrations';
 
 export const DB_NAME = 'tripphotosorter.db';
 
@@ -43,6 +44,11 @@ export function openDbSync(dbName: string = DB_NAME): SQLite.SQLiteDatabase {
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!dbInstance) {
     dbInstance = await openDb(DB_NAME);
+    try {
+      await runMigrations(dbInstance);
+    } catch (err) {
+      console.warn('[getDatabase] Failed to run migrations on database open:', err);
+    }
   }
   return dbInstance;
 }
@@ -53,6 +59,11 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 export function getDatabaseSync(): SQLite.SQLiteDatabase {
   if (!dbInstance) {
     dbInstance = openDbSync(DB_NAME);
+    try {
+      runMigrationsSync(dbInstance);
+    } catch (err) {
+      console.warn('[getDatabaseSync] Failed to run migrations on database open:', err);
+    }
   }
   return dbInstance;
 }

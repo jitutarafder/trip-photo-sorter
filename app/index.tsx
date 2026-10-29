@@ -57,7 +57,9 @@ export default function HomeScreen() {
           return;
         }
       } catch {
-        // If DB fails to read, continue gracefully
+        // If DB fails to read or is fresh, safely redirect to onboarding
+        router.replace('/onboarding');
+        return;
       } finally {
         setCheckingOnboarding(false);
       }
