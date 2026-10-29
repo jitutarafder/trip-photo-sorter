@@ -160,40 +160,70 @@ export function clusterEmbeddings(
     return { clusters: [], othersItemIds: [] };
   }
 
-  const photoIds = items.map((it) => it.photoId);
-
-  // Pre-calculate pairwise distance matrix
-  const distMatrix: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
+  // Pre-calculate pairwise distance matrix using contiguous Float32Array (4 bytes/float)
+  const clusterDist = new Float32Array(n * n);
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const d = cosineDistance(items[i].embedding, items[j].embedding);
-      distMatrix[i][j] = d;
-      distMatrix[j][i] = d;
+      clusterDist[i * n + j] = d;
+      clusterDist[j * n + i] = d;
     }
   }
 
-  // Initialize each item as its own cluster (indices into items array)
-  let activeClusters: number[][] = items.map((_, idx) => [idx]);
+  // Internal cluster representation with item indices, photo ID set, and cluster size
+  interface InternalCluster {
+    indices: number[];
+    photoIds: Set<string>;
+    size: number;
+  }
 
-  while (activeClusters.length > 1) {
+  const internalClusters: InternalCluster[] = items.map((it, idx) => ({
+    indices: [idx],
+    photoIds: it.photoId ? new Set([it.photoId]) : new Set<string>(),
+    size: 1,
+  }));
+
+  // Active cluster IDs (referencing internalClusters array)
+  const active: number[] = items.map((_, idx) => idx);
+
+  // Lance-Williams recurrence relation for average-linkage UPGMA (O(N^2) instead of O(N^4))
+  while (active.length > 1) {
     let minDistance = Infinity;
     let mergeIdxA = -1;
     let mergeIdxB = -1;
 
-    // Find pair of clusters with minimum average distance
-    for (let a = 0; a < activeClusters.length; a++) {
-      for (let b = a + 1; b < activeClusters.length; b++) {
-        // Cannot-link constraint: faces from the exact same photo cannot merge
-        if (haveOverlappingPhotos(activeClusters[a], activeClusters[b], photoIds)) {
+    for (let a = 0; a < active.length; a++) {
+      const cA = active[a];
+      const clusterA = internalClusters[cA];
+
+      for (let b = a + 1; b < active.length; b++) {
+        const cB = active[b];
+        const d = clusterDist[cA * n + cB];
+        if (d >= minDistance) {
           continue;
         }
 
-        const d = averageLinkageDistance(activeClusters[a], activeClusters[b], distMatrix);
-        if (d < minDistance) {
-          minDistance = d;
-          mergeIdxA = a;
-          mergeIdxB = b;
+        const clusterB = internalClusters[cB];
+        // Cannot-link constraint: faces from the exact same photo cannot merge
+        let hasOverlap = false;
+        const [smaller, larger] =
+          clusterA.photoIds.size <= clusterB.photoIds.size
+            ? [clusterA.photoIds, clusterB.photoIds]
+            : [clusterB.photoIds, clusterA.photoIds];
+
+        for (const pid of smaller) {
+          if (larger.has(pid)) {
+            hasOverlap = true;
+            break;
+          }
         }
+        if (hasOverlap) {
+          continue;
+        }
+
+        minDistance = d;
+        mergeIdxA = a;
+        mergeIdxB = b;
       }
     }
 
@@ -202,18 +232,40 @@ export function clusterEmbeddings(
       break;
     }
 
-    // Merge cluster B into cluster A and remove cluster B
-    const merged = activeClusters[mergeIdxA].concat(activeClusters[mergeIdxB]);
-    const nextClusters: number[][] = [];
-    for (let i = 0; i < activeClusters.length; i++) {
-      if (i === mergeIdxA) {
-        nextClusters.push(merged);
-      } else if (i !== mergeIdxB) {
-        nextClusters.push(activeClusters[i]);
-      }
+    const cA = active[mergeIdxA];
+    const cB = active[mergeIdxB];
+    const clusterA = internalClusters[cA];
+    const clusterB = internalClusters[cB];
+
+    const sizeA = clusterA.size;
+    const sizeB = clusterB.size;
+    const newSize = sizeA + sizeB;
+
+    // Lance-Williams update for all remaining active clusters:
+    // D(A U B, C) = (sizeA * D(A, C) + sizeB * D(B, C)) / (sizeA + sizeB)
+    for (let i = 0; i < active.length; i++) {
+      if (i === mergeIdxA || i === mergeIdxB) continue;
+      const cC = active[i];
+      const dAC = clusterDist[cA * n + cC];
+      const dBC = clusterDist[cB * n + cC];
+      const newD = (sizeA * dAC + sizeB * dBC) / newSize;
+      clusterDist[cA * n + cC] = newD;
+      clusterDist[cC * n + cA] = newD;
     }
-    activeClusters = nextClusters;
+
+    // Merge B into A
+    clusterA.indices.push(...clusterB.indices);
+    for (const pid of clusterB.photoIds) {
+      clusterA.photoIds.add(pid);
+    }
+    clusterA.size = newSize;
+
+    // Remove B from active list
+    active.splice(mergeIdxB, 1);
   }
+
+  // Extract merged cluster index lists
+  const activeClusters = active.map((cIdx) => internalClusters[cIdx].indices);
 
   // Separate clusters by minClusterSize
   const clusters: FaceCluster[] = [];

@@ -166,11 +166,15 @@ export async function assignFacesToPerson(
 ): Promise<void> {
   if (faceIds.length === 0) return;
   const database = await resolveDb(db);
-  const placeholders = faceIds.map(() => '?').join(', ');
-  await database.runAsync(
-    `UPDATE faces SET person_id = ?, assignment = ? WHERE id IN (${placeholders});`,
-    [personId, assignment, ...faceIds]
-  );
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < faceIds.length; i += BATCH_SIZE) {
+    const chunk = faceIds.slice(i, i + BATCH_SIZE);
+    const placeholders = chunk.map(() => '?').join(', ');
+    await database.runAsync(
+      `UPDATE faces SET person_id = ?, assignment = ? WHERE id IN (${placeholders});`,
+      [personId, assignment, ...chunk]
+    );
+  }
 }
 
 /**
