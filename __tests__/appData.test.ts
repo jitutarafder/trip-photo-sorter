@@ -36,6 +36,7 @@ describe('AppData Service (Task 3.11)', () => {
 
     expect(result.tablesReset).toBe(true);
     expect(result.exportsCleared).toBe(true);
+    expect(result.thumbnailsCleared).toBe(true);
 
     // 3. Verify clean state
     expect(await isOnboarded(db)).toBe(false);
