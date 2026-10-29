@@ -59,6 +59,7 @@ export interface ScanTripProgress {
   current: number;
   total: number;
   facesFound: number;
+  skippedCount?: number;
   currentPhotoId?: string;
 }
 
@@ -479,6 +480,7 @@ export async function scanTripFaces(
           current: scannedCount,
           total: totalPhotos,
           facesFound,
+          skippedCount,
           currentPhotoId: photo.id,
         });
 
@@ -494,6 +496,13 @@ export async function scanTripFaces(
               database
             );
             skippedCount++;
+            options.onProgress?.({
+              current: scannedCount,
+              total: totalPhotos,
+              facesFound,
+              skippedCount,
+              currentPhotoId: photo.id,
+            });
             continue;
           }
 
@@ -647,6 +656,7 @@ export async function scanTripFaces(
       current: scannedCount,
       total: totalPhotos,
       facesFound,
+      skippedCount,
     });
 
     return {
@@ -705,7 +715,12 @@ export function useFaceScan(
 ): UseFaceScanResult {
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [progress, setProgress] = useState<ScanTripProgress>({ current: 0, total: 0, facesFound: 0 });
+  const [progress, setProgress] = useState<ScanTripProgress>({
+    current: 0,
+    total: 0,
+    facesFound: 0,
+    skippedCount: 0,
+  });
   const [lastResult, setLastResult] = useState<ScanTripFacesResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
 

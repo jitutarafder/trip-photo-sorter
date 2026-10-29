@@ -57,7 +57,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 
 ## Phase 4 — Edge-Case Tests
 - [x] 4.1 Permission: limited access, revoked mid-scan, denied → settings → return
-- [ ] 4.2 iCloud-only photos skipped with notice
+- [x] 4.2 iCloud-only photos skipped with notice
 - [ ] 4.3 Photo deleted between scan and export
 - [ ] 4.4 App killed mid-scan → resume, no duplicate faces
 - [ ] 4.5 Low storage; share cancelled; temp files deleted on all paths
@@ -131,6 +131,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-29 | 3.10 | Implemented Paywall modal screen in app/paywall.tsx with Pro benefits list, one-time price ($4.99), Unlock Pro button, Restore Purchase button, close button, beta preview info banner when gate is OFF ($0 MVP), and success/error feedback, with 11 unit/component tests in __tests__/paywall.test.tsx
 2026-10-29 | 3.11 | Implemented Settings screen in app/settings.tsx (photo library permissions management with Full/Limited/Denied badges, library re-sync with trip persistence, Pro membership status / restore purchases, 100% on-device privacy statement, and Reset All App Data danger zone confirmation dialog) and resetAllAppData helper in src/services/appData.ts, with 14 unit/component tests across __tests__/appData.test.ts and __tests__/settings.test.tsx
 2026-10-29 | 4.1 | Verified and strengthened permission edge-cases: limited access banner and picker sync, mid-scan revocation pause with pending status preservation and banner, denied redirect with settings return foreground sync, null/undefined permission safety in mapPermissionResponse, and comprehensive edge-case tests in __tests__/edgeCasePermissions.test.tsx
+2026-10-29 | 4.2 | Implemented and verified iCloud-only photo handling: marked is_local=0 and scan_status=skipped on resolution miss, added real-time skippedCount to ScanTripProgress, displayed 'n photos in iCloud skipped' in ScanProgressModal progress and zero-faces views, rendered trip-icloud-skipped-banner in Trip Detail, and added comprehensive edge-case tests in __tests__/edgeCaseICloud.test.tsx
 
 
 

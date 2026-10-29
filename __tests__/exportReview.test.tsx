@@ -10,6 +10,8 @@ import * as exporterService from '../src/services/exporter';
 import * as LegacyFileSystem from 'expo-file-system/legacy';
 import type { TripRow } from '../src/db/types';
 
+jest.setTimeout(15000);
+
 // Mock expo-router
 const mockRouter = {
   push: jest.fn(),

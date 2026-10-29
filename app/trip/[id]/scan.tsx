@@ -344,6 +344,19 @@ export default function ScanProgressModal() {
             >
               • You can adjust the trip date range to include other photos
             </Text>
+            {scanResult?.skippedCount && scanResult.skippedCount > 0 ? (
+              <Text
+                testID="zero-faces-icloud-notice"
+                style={[
+                  styles.tipItem,
+                  { fontSize: tokens.typography.caption.fontSize, color: colors.warning },
+                ]}
+              >
+                • {scanResult.skippedCount}{' '}
+                {scanResult.skippedCount === 1 ? 'photo was' : 'photos were'} stored in iCloud only
+                and skipped. Download to your device in the Photos app to scan.
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.actionButtons}>
@@ -629,6 +642,22 @@ export default function ScanProgressModal() {
           </View>
         )}
       </View>
+
+      {/* Notice for iCloud-only photos (02_AppFlow §4, 01_PRD §7) */}
+      {((progress.skippedCount ?? 0) > 0 || (scanResult?.skippedCount ?? 0) > 0) ? (
+        <Text
+          testID="scan-icloud-skipped-notice"
+          style={[
+            styles.failedNotice,
+            { fontSize: tokens.typography.micro.fontSize, color: colors.warning },
+          ]}
+        >
+          {progress.skippedCount || scanResult?.skippedCount}{' '}
+          {(progress.skippedCount || scanResult?.skippedCount) === 1
+            ? 'photo in iCloud skipped'
+            : 'photos in iCloud skipped'}
+        </Text>
+      ) : null}
 
       {/* Notice for skipped / failed single photos (02_AppFlow §3.4) */}
       {scanResult?.failedCount && scanResult.failedCount > 0 ? (

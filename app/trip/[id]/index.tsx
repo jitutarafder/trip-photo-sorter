@@ -338,6 +338,20 @@ export default function TripDetailScreen() {
           </Text>
         </View>
 
+        {/* Notice for skipped iCloud photos (02_AppFlow §4, 01_PRD §7) */}
+        {photos.filter((p) => p.is_local === 0 || p.scan_status === 'skipped').length > 0 ? (
+          <Banner
+            testID="trip-icloud-skipped-banner"
+            variant="info"
+            message={`${photos.filter((p) => p.is_local === 0 || p.scan_status === 'skipped').length} ${
+              photos.filter((p) => p.is_local === 0 || p.scan_status === 'skipped').length === 1
+                ? 'photo in iCloud was'
+                : 'photos in iCloud were'
+            } skipped. Download to this device to scan faces.`}
+            style={styles.bannerSpacing}
+          />
+        ) : null}
+
         {/* Free-limit banner (02_AppFlow §3.3) */}
         {showFreeLimitBanner ? (
           <Banner
