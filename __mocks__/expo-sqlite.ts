@@ -238,6 +238,14 @@ class InMemoryEngine {
       }
     }
 
+    if (tableName === 'people' && row.name != null) {
+      for (const existing of Array.from(table.values())) {
+        if (existing.trip_id === row.trip_id && existing.name === row.name && String(existing.id) !== pk) {
+          throw new Error('UNIQUE constraint failed: people.trip_id, people.name');
+        }
+      }
+    }
+
     table.set(pk, row);
     return { changes: 1, lastInsertRowId: 1 };
   }
@@ -313,6 +321,13 @@ class InMemoryEngine {
             }
           } else if (!isNaN(Number(expr))) {
             updated[col] = Number(expr);
+          }
+        }
+        if (tableName === 'people' && updated.name != null) {
+          for (const [otherPk, existing] of Array.from(table.entries())) {
+            if (otherPk !== pk && existing.trip_id === updated.trip_id && existing.name === updated.name) {
+              throw new Error('UNIQUE constraint failed: people.trip_id, people.name');
+            }
           }
         }
         table.set(pk, updated);

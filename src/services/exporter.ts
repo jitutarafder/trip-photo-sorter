@@ -88,7 +88,10 @@ export interface BatchExportOptions {
 export function sanitizeFilename(name: string, fallback = 'Unnamed'): string {
   const cleaned = name.replace(/[/\\:*?"<>|]/g, '').trim();
   const valid = cleaned.length > 0 ? cleaned : fallback;
-  return valid.slice(0, 40);
+  // Use Array.from to count Unicode code points rather than raw UTF-16 code units,
+  // preventing broken surrogate pairs when capping at 40 characters.
+  const codePoints = Array.from(valid);
+  return codePoints.slice(0, 40).join('');
 }
 
 /**

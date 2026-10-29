@@ -34,7 +34,9 @@ export function validatePersonName(
     };
   }
 
-  if (trimmed.length > 40) {
+  // Count Unicode code points (supports emojis & international scripts without cutting surrogates)
+  const charCount = Array.from(trimmed).length;
+  if (charCount > 40) {
     return {
       valid: false,
       error: 'Name must be 40 characters or fewer',
@@ -47,6 +49,15 @@ export function validatePersonName(
     return {
       valid: false,
       error: 'Name cannot contain /, \\, or :',
+      trimmedName: trimmed,
+    };
+  }
+
+  // Control characters & newlines
+  if (/[\u0000-\u001F\u007F]/.test(trimmed)) {
+    return {
+      valid: false,
+      error: 'Name cannot contain control characters or newlines',
       trimmedName: trimmed,
     };
   }

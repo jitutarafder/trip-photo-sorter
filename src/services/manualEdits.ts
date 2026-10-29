@@ -256,7 +256,10 @@ export async function mergePeople(
       [sourcePersonId]
     );
 
-    // 3. If target is unnamed and source had a name, adopt source name
+    // 3. Delete source person first so adopting source.name doesn't violate UNIQUE(trip_id, name)
+    await deletePerson(sourcePersonId, database);
+
+    // 4. If target is unnamed and source had a name, adopt source name
     const updates: Partial<PersonRow> = {};
     if (!target.name && source.name) {
       updates.name = source.name;
@@ -267,9 +270,6 @@ export async function mergePeople(
     if (Object.keys(updates).length > 0) {
       await updatePerson(targetPersonId, updates, database);
     }
-
-    // 4. Delete source person
-    await deletePerson(sourcePersonId, database);
 
     // 5. Recompute centroid for target person
     await recomputePersonCentroid(targetPersonId, database);
