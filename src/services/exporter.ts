@@ -160,25 +160,30 @@ export async function resolvePhotoLocalUri(photo: PhotoRow): Promise<string | nu
 export function isUserCancellation(err: unknown): boolean {
   if (!err) return false;
   if (typeof err === 'object') {
-    if ('dismissed' in err && (err as { dismissed: boolean }).dismissed) {
+    if ('dismissed' in err && Boolean((err as { dismissed?: boolean }).dismissed)) {
+      return true;
+    }
+    if ('dismissedAction' in err && Boolean((err as { dismissedAction?: boolean }).dismissedAction)) {
       return true;
     }
     if ('message' in err && typeof (err as { message: unknown }).message === 'string') {
-      const msg = (err as { message: string }).message;
+      const msg = (err as { message: string }).message.toLowerCase();
       return (
-        msg.includes('User did not share') ||
+        msg.includes('user did not share') ||
         msg.includes('dismissed') ||
         msg.includes('cancel') ||
-        msg.includes('CANCELLED')
+        msg.includes('cancelled') ||
+        msg.includes('canceled')
       );
     }
   }
-  const str = String(err);
+  const str = String(err).toLowerCase();
   return (
-    str.includes('User did not share') ||
+    str.includes('user did not share') ||
     str.includes('dismissed') ||
     str.includes('cancel') ||
-    str.includes('CANCELLED')
+    str.includes('cancelled') ||
+    str.includes('canceled')
   );
 }
 

@@ -259,6 +259,8 @@ export default function ExportReviewScreen() {
     setQueueTotal(selectedPeople.length);
 
     let completedCount = 0;
+    let cancelledCount = 0;
+    let failedCount = 0;
     let totalSkippedCount = 0;
     const currentQueue = [...selectedPeople];
 
@@ -282,6 +284,7 @@ export default function ExportReviewScreen() {
         }
 
         if (result.status === 'cancelled') {
+          cancelledCount++;
           // Share cancelled -> uncheck row (02_AppFlow §3.7)
           setConfigs((prev) => ({
             ...prev,
@@ -302,6 +305,7 @@ export default function ExportReviewScreen() {
           }));
         }
       } catch {
+        failedCount++;
         setConfigs((prev) => ({
           ...prev,
           [person.id]: {
@@ -314,10 +318,16 @@ export default function ExportReviewScreen() {
 
     setIsQueueActive(false);
 
-    let summary =
-      completedCount > 0
-        ? `Export complete! Shared ${completedCount} ${completedCount === 1 ? 'person' : 'people'}.`
-        : 'Export finished.';
+    let summary = '';
+    if (completedCount > 0) {
+      summary = `Export complete! Shared ${completedCount} ${completedCount === 1 ? 'person' : 'people'}.`;
+    } else if (cancelledCount > 0) {
+      summary = 'Share was cancelled.';
+    } else if (failedCount > 0) {
+      summary = 'Export failed. Please check available storage.';
+    } else {
+      summary = 'Export finished.';
+    }
 
     if (totalSkippedCount > 0) {
       summary += ` (${totalSkippedCount} missing or deleted ${
