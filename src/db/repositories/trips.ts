@@ -349,3 +349,18 @@ export async function getAutoDetectedTrips(
     'SELECT * FROM trips WHERE is_user_edited = 0 ORDER BY start_at DESC;'
   );
 }
+
+/**
+ * Reconciles any interrupted scan states when app launches or loads trips.
+ * Per 02_AppFlow §2 state machine: background-kill transitions SCANNING or CLUSTERING -> PAUSED.
+ */
+export async function reconcileInterruptedTripScans(
+  db?: SQLiteDatabase
+): Promise<number> {
+  const database = await resolveDb(db);
+  const result = await database.runAsync(
+    "UPDATE trips SET scan_status = 'paused', updated_at = ? WHERE scan_status IN ('scanning', 'clustering');",
+    [Date.now()]
+  );
+  return result.changes;
+}

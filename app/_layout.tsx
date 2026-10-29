@@ -13,6 +13,7 @@ import {
 import { ThemeProvider, useTheme } from '../src/theme';
 import { ErrorBoundary, ErrorFallback } from '../src/components/ErrorBoundary';
 import { useOrphanSweep } from '../src/hooks/useOrphanSweep';
+import { reconcileInterruptedTripScans } from '../src/db/repositories/trips';
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -153,6 +154,13 @@ export default function RootLayout() {
 
   // Launch-time orphan export sweep (04_TRD §6, 05_Schema §4)
   useOrphanSweep();
+
+  // Reconcile interrupted scans on app launch (02_AppFlow §2)
+  useEffect(() => {
+    reconcileInterruptedTripScans().catch((err) => {
+      console.warn('[RootLayout] Error reconciling interrupted trip scans on launch:', err);
+    });
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

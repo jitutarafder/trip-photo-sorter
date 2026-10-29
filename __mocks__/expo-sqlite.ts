@@ -298,6 +298,9 @@ class InMemoryEngine {
           } else if (expr.includes('+ ?')) {
             const current = (Number(updated[col]) || 0);
             updated[col] = current + Number(setParams[pIdx++]);
+          } else if (expr.includes('+ 1')) {
+            const current = (Number(updated[col]) || 0);
+            updated[col] = current + 1;
           } else if (expr === 'NULL') {
             updated[col] = null;
           } else if (expr.startsWith("'") && expr.endsWith("'")) {
@@ -357,6 +360,17 @@ class InMemoryEngine {
     if (/^photo_id\s*=\s*\?$/i.test(clause)) {
       return row.photo_id === params[0];
     }
+    if (/photo_id\s+IN\s*\(\s*SELECT\s+id\s+FROM\s+photos\s+WHERE\s+trip_id\s*=\s*\?\s*AND\s*scan_status\s*=\s*'pending'\s*\)/i.test(clause)) {
+      const tripId = params[0];
+      const photosTable = this.getTable('photos');
+      const pendingPhotoIds = new Set<string>();
+      for (const p of Array.from(photosTable.values())) {
+        if (p.trip_id === tripId && p.scan_status === 'pending') {
+          pendingPhotoIds.add(p.id as string);
+        }
+      }
+      return pendingPhotoIds.has(row.photo_id as string);
+    }
     if (/^photo_id\s+IN\s*\(/i.test(clause)) {
       return params.includes(row.photo_id);
     }
@@ -412,6 +426,9 @@ class InMemoryEngine {
     if (/zip_path\s+IS\s+NOT\s+NULL|status\s+IN\s*\(\s*'pending'/i.test(clause)) {
       const activeStatuses = ['pending', 'zipping', 'ready', 'sharing'];
       return row.zip_path !== null || activeStatuses.includes(row.status as string);
+    }
+    if (/scan_status\s+IN\s*\(\s*'scanning',\s*'clustering'\s*\)/i.test(clause)) {
+      return row.scan_status === 'scanning' || row.scan_status === 'clustering';
     }
     if (/quality_ok\s*=\s*1/i.test(clause)) {
       return Number(row.quality_ok) === 1;

@@ -237,3 +237,67 @@ export async function getFaceIdsForPersonPhotos(
   );
   return rows.map((r) => r.id);
 }
+
+/**
+ * Deletes any faces associated with pending (uncompleted) photos for a trip.
+ * Used during scan resumption to clean up any orphaned faces left from an interrupted/killed scan.
+ */
+export async function deleteOrphanFacesForPendingTripPhotos(
+  tripId: string,
+  db?: SQLiteDatabase
+): Promise<number> {
+  const database = await resolveDb(db);
+  const result = await database.runAsync(
+    `DELETE FROM faces WHERE photo_id IN (
+       SELECT id FROM photos WHERE trip_id = ? AND scan_status = 'pending'
+     );`,
+    [tripId]
+  );
+  return result.changes;
+}
+
+/**
+ * Atomically saves faces for a photo and marks the photo as done.
+ * Deletes any existing faces for this photo first to prevent duplicate faces on scan resume.
+ */
+export async function savePhotoFacesAtomic(
+  photoId: string,
+  tripId: string,
+  faces: FaceRow[],
+  db?: SQLiteDatabase
+): Promise<void> {
+  const database = await resolveDb(db);
+  await database.withTransactionAsync(async () => {
+    await database.runAsync('DELETE FROM faces WHERE photo_id = ?;', [photoId]);
+    for (const face of faces) {
+      await database.runAsync(
+        `INSERT INTO faces (
+          id, photo_id, person_id, assignment, bbox_x, bbox_y, bbox_w, bbox_h,
+          quality, quality_ok, blur, embedding
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        [
+          face.id,
+          face.photo_id,
+          face.person_id,
+          face.assignment,
+          face.bbox_x,
+          face.bbox_y,
+          face.bbox_w,
+          face.bbox_h,
+          face.quality,
+          face.quality_ok,
+          face.blur,
+          face.embedding,
+        ]
+      );
+    }
+    await database.runAsync(
+      'UPDATE photos SET scan_status = ?, face_count = ? WHERE id = ?;',
+      ['done', faces.length, photoId]
+    );
+    await database.runAsync(
+      'UPDATE trips SET scanned_count = scanned_count + ?, updated_at = ? WHERE id = ?;',
+      [1, Date.now(), tripId]
+    );
+  });
+}

@@ -7,9 +7,12 @@ import { detectFacesWithAppleVision, isAppleVisionAvailable } from 'apple-vision
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { getDatabase } from '../db/client';
 import type { FaceRow, PhotoRow } from '../db/types';
-import { getTripById, updateTrip, incrementScannedCount } from '../db/repositories/trips';
-import { getPendingPhotosByTripId, updatePhoto, updatePhotoScanStatus } from '../db/repositories/photos';
-import { insertFace } from '../db/repositories/faces';
+import { getTripById, updateTrip, reconcileInterruptedTripScans } from '../db/repositories/trips';
+import { getPendingPhotosByTripId, updatePhoto, markPhotoScanFailedAtomic } from '../db/repositories/photos';
+import {
+  deleteOrphanFacesForPendingTripPhotos,
+  savePhotoFacesAtomic,
+} from '../db/repositories/faces';
 import { calculateCropRect } from '../domain/faceCrop';
 import { l2Normalize } from '../domain/clustering';
 import { CONFIG } from '../domain/config';
@@ -373,13 +376,20 @@ export async function scanTripFaces(
     throw new Error(`Trip with ID "${tripId}" not found`);
   }
 
-  // 2. Fetch pending photos for this trip (resume rule: scan only scan_status != 'done')
+  // 2. Clean up any dangling faces from pending photos (leftover from an interrupted/killed scan)
+  await deleteOrphanFacesForPendingTripPhotos(tripId, database);
+
+  // Fetch pending photos for this trip (resume rule: scan only scan_status != 'done')
   const pendingPhotos: PhotoRow[] = await getPendingPhotosByTripId(tripId, undefined, database);
   const totalPhotos = pendingPhotos.length;
 
   if (totalPhotos === 0) {
-    // If all photos were already done, mark trip as scanned
-    await updateTrip(tripId, { scan_status: 'scanned' }, database);
+    // If all photos were already done, cluster if autoCluster is enabled, or mark trip as scanned
+    if (options.autoCluster) {
+      await clusterAndPersistTripFaces(tripId, undefined, database);
+    } else {
+      await updateTrip(tripId, { scan_status: 'scanned' }, database);
+    }
     return {
       status: 'completed',
       scannedCount: 0,
@@ -474,6 +484,9 @@ export async function scanTripFaces(
         }
 
         const currentIndex = nextIndex++;
+        if (currentIndex >= pendingPhotos.length) {
+          break;
+        }
         const photo = pendingPhotos[currentIndex];
 
         options.onProgress?.({
@@ -600,12 +613,14 @@ export async function scanTripFaces(
             };
 
             photoFaces.push(faceRow);
-            await insertFace(faceRow, database);
           }
 
-          // Step 3: Update photo row
-          await updatePhotoScanStatus(photo.id, 'done', photoFaces.length, database);
-          await incrementScannedCount(tripId, 1, database);
+          if (controller.shouldStop) {
+            break;
+          }
+
+          // Step 3: Atomic commit of faces and photo status (prevents duplicate faces on kill/resume)
+          await savePhotoFacesAtomic(photo.id, tripId, photoFaces, database);
 
           scannedCount++;
           facesFound += photoFaces.length;
@@ -619,7 +634,7 @@ export async function scanTripFaces(
           }
           // Error on single photo: mark scan_status='failed', continue next photo
           console.warn(`[faceScan] Error processing photo ${photo.id}:`, photoErr);
-          await updatePhotoScanStatus(photo.id, 'failed', 0, database);
+          await markPhotoScanFailedAtomic(photo.id, database);
           failedCount++;
         }
       }
@@ -803,3 +818,5 @@ export function useFaceScan(
     cancelScan,
   };
 }
+
+export { reconcileInterruptedTripScans };

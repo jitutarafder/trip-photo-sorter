@@ -291,3 +291,20 @@ export async function getPhotosForTripDetection(
     'SELECT id, taken_at, trip_id FROM photos ORDER BY taken_at ASC;'
   );
 }
+
+/**
+ * Atomically marks a photo as failed and removes any partial faces.
+ */
+export async function markPhotoScanFailedAtomic(
+  photoId: string,
+  db?: SQLiteDatabase
+): Promise<void> {
+  const database = await resolveDb(db);
+  await database.withTransactionAsync(async () => {
+    await database.runAsync('DELETE FROM faces WHERE photo_id = ?;', [photoId]);
+    await database.runAsync(
+      'UPDATE photos SET scan_status = ?, face_count = 0 WHERE id = ?;',
+      ['failed', photoId]
+    );
+  });
+}

@@ -88,10 +88,18 @@ export default function TripDetailScreen() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const tripData = await getTripById(id);
+      let tripData = await getTripById(id);
       if (!tripData) {
         setLoadError('Trip not found');
         return;
+      }
+      // If trip was left in an active scanning/clustering state (e.g. process killed),
+      // reconcile to 'paused' so the user can resume (02_AppFlow §2)
+      if (tripData.scan_status === 'scanning' || tripData.scan_status === 'clustering') {
+        const updated = await updateTrip(id, { scan_status: 'paused' });
+        if (updated) {
+          tripData = updated;
+        }
       }
       setTrip(tripData);
       setRenameValue(tripData.name);
