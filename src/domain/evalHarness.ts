@@ -295,26 +295,37 @@ export function evaluateClusteringAndAssignment(
   };
 }
 
+export interface BenchmarkDatasetOptions {
+  personCount?: number;
+  photosPerPerson?: number;
+  groupPhotoCount?: number;
+  largeGroupPhotoCount?: number;
+  largeGroupSize?: number;
+  sunglassesRatio?: number;
+  sideProfileRatio?: number;
+  dim?: number;
+  noiseScale?: number;
+}
+
 /**
- * Generates a synthetic, reproducible benchmark dataset (100–200 faces).
+ * Generates a synthetic, reproducible benchmark dataset (100–300+ faces).
  * Mimics MobileFaceNet 128-d embeddings:
  * - High intra-person cosine similarity (0.80–0.95 -> cosine distance 0.05–0.20)
  * - Low inter-person cosine similarity (0.00–0.40 -> cosine distance 0.60–1.00)
  * - Realistic photo distribution (single-person photos and group photos with cannot-link constraints)
+ * - Supports large 15+ face group photos, sunglasses occlusions, and extreme yaw side profiles (Plan Task 4.8)
  * - Quality attributes (confidence, blur, yaw)
  */
 export function generateBenchmarkDataset(
-  options: {
-    personCount?: number;
-    photosPerPerson?: number;
-    groupPhotoCount?: number;
-    dim?: number;
-    noiseScale?: number;
-  } = {}
+  options: BenchmarkDatasetOptions = {}
 ): GroundTruthFace[] {
   const personCount = options.personCount ?? 12; // 12 distinct individuals
   const photosPerPerson = options.photosPerPerson ?? 12; // ~12 photos each -> ~144 solo faces
-  const groupPhotoCount = options.groupPhotoCount ?? 10; // 10 group photos with 2-4 people
+  const groupPhotoCount = options.groupPhotoCount ?? 10; // 10 small group photos with 2-4 people
+  const largeGroupPhotoCount = options.largeGroupPhotoCount ?? 0; // 15+ face group photos (Task 4.8)
+  const largeGroupSize = options.largeGroupSize ?? 15;
+  const sunglassesRatio = options.sunglassesRatio ?? 0;
+  const sideProfileRatio = options.sideProfileRatio ?? 0;
   const dim = options.dim ?? 128;
   const noiseScale = options.noiseScale ?? 0.5; // Yields intra-person cosine distance ~0.10 - 0.20
 
@@ -371,19 +382,24 @@ export function generateBenchmarkDataset(
   const createFace = (
     personIdx: number,
     photoId: string,
-    isLowQuality = false
+    isLowQuality = false,
+    isSunglasses = false,
+    isSideProfile = false
   ): GroundTruthFace => {
     const base = personBaseVectors[personIdx];
     const noiseVec = randomUnitVector();
+    const effectiveNoise = isSunglasses ? noiseScale * 1.3 : noiseScale;
     const perturbed = new Float32Array(dim);
     for (let d = 0; d < dim; d++) {
-      perturbed[d] = base[d] + noiseVec[d] * noiseScale;
+      perturbed[d] = base[d] + noiseVec[d] * effectiveNoise;
     }
     const embedding = l2Normalize(perturbed);
 
     const faceId = `face_${faceCounter++}`;
     const blur = isLowQuality ? 15 + rand() * 15 : 45 + rand() * 50;
     const quality = isLowQuality ? 0.35 + rand() * 0.12 : 0.85 + rand() * 0.14;
+    const yaw = isSideProfile ? 0.85 + rand() * 0.35 : 0.1 + rand() * 0.3;
+    const qualityOk = !isLowQuality && !isSideProfile;
 
     return {
       id: faceId,
@@ -397,9 +413,9 @@ export function generateBenchmarkDataset(
         height: 0.15 + rand() * 0.1,
       },
       quality,
-      qualityOk: !isLowQuality,
+      qualityOk,
       blur,
-      yaw: 0.1 + rand() * 0.3,
+      yaw,
     };
   };
 
@@ -407,13 +423,14 @@ export function generateBenchmarkDataset(
   for (let p = 0; p < personCount; p++) {
     for (let s = 0; s < photosPerPerson; s++) {
       const photoId = `photo_solo_${photoCounter++}`;
-      // 5% low quality faces (blurred/backlit)
-      const isLowQuality = rand() < 0.05;
-      faces.push(createFace(p, photoId, isLowQuality));
+      const isSunglasses = rand() < sunglassesRatio;
+      const isSideProfile = !isSunglasses && rand() < sideProfileRatio;
+      const isLowQuality = !isSunglasses && !isSideProfile && rand() < 0.05;
+      faces.push(createFace(p, photoId, isLowQuality, isSunglasses, isSideProfile));
     }
   }
 
-  // 2. Generate group photos (with cannot-link same-photo constraint)
+  // 2. Generate standard small group photos (with cannot-link same-photo constraint)
   for (let g = 0; g < groupPhotoCount; g++) {
     const photoId = `photo_group_${photoCounter++}`;
     // Pick 2 to 4 distinct people for this group photo
@@ -424,6 +441,21 @@ export function generateBenchmarkDataset(
     }
     for (const attendee of attendees) {
       faces.push(createFace(attendee, photoId, false));
+    }
+  }
+
+  // 3. Generate large 15+ face group photos (Plan Task 4.8)
+  for (let lg = 0; lg < largeGroupPhotoCount; lg++) {
+    const photoId = `photo_large_group_${photoCounter++}`;
+    const targetSize = Math.min(largeGroupSize, personCount);
+    const attendees = new Set<number>();
+    while (attendees.size < targetSize) {
+      attendees.add(Math.floor(rand() * personCount));
+    }
+    for (const attendee of attendees) {
+      const isSunglasses = rand() < sunglassesRatio;
+      const isSideProfile = !isSunglasses && rand() < sideProfileRatio;
+      faces.push(createFace(attendee, photoId, false, isSunglasses, isSideProfile));
     }
   }
 
