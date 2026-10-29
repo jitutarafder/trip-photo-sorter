@@ -235,6 +235,7 @@ export interface SyncBatchProgress {
 export interface SyncLibraryOptions {
   batchSize?: number;
   forceFullSync?: boolean;
+  reconcileDeleted?: boolean;
   db?: SQLiteDatabase;
   onBatchProgress?: (progress: SyncBatchProgress) => void;
 }
@@ -244,6 +245,132 @@ export interface SyncLibraryResult {
   batchesCount: number;
   lastSyncAt: number;
   isIncremental: boolean;
+  reconciledDeletedCount?: number;
+}
+
+export interface ReconcileDeletedPhotosResult {
+  deletedPhotosCount: number;
+  affectedTripsCount: number;
+  cleanedEmptyTripsCount: number;
+}
+
+/**
+ * Reconciles photo records in SQLite against the user's gallery.
+ *
+ * Implements Schema §5 Integrity Rule:
+ * Deleted gallery asset -> delete photos row -> cascades to faces;
+ * recompute trips.photo_count and empty-trip cleanup in same transaction.
+ *
+ * If an auto-detected trip has 0 photos remaining, delete the trip
+ * (unless is_user_edited = 1, in which case retain the empty trip container).
+ */
+export async function reconcileDeletedGalleryPhotos(
+  existingAssetIds?: string[],
+  db?: SQLiteDatabase
+): Promise<ReconcileDeletedPhotosResult> {
+  const database = db ?? (await getDatabase());
+
+  let assetIds = existingAssetIds;
+  if (!assetIds) {
+    const collected: string[] = [];
+    let hasNext = true;
+    let after: string | undefined = undefined;
+    while (hasNext) {
+      const paged = await MediaLibrary.getAssetsAsync({
+        first: 500,
+        after,
+        mediaType: [MediaLibrary.MediaType?.photo ?? 'photo'],
+      });
+      if (!paged || !paged.assets || paged.assets.length === 0) break;
+      for (const a of paged.assets) {
+        collected.push(a.id);
+      }
+      after = paged.endCursor;
+      hasNext = Boolean(paged.hasNextPage && after && paged.assets.length > 0);
+    }
+    assetIds = collected;
+  }
+
+  const dbPhotos = await database.getAllAsync<{ id: string; trip_id: string | null }>(
+    'SELECT id, trip_id FROM photos;'
+  );
+
+  if (dbPhotos.length === 0) {
+    return {
+      deletedPhotosCount: 0,
+      affectedTripsCount: 0,
+      cleanedEmptyTripsCount: 0,
+    };
+  }
+
+  const existingSet = new Set(assetIds);
+  const missingPhotos = dbPhotos.filter((p) => !existingSet.has(p.id));
+
+  if (missingPhotos.length === 0) {
+    return {
+      deletedPhotosCount: 0,
+      affectedTripsCount: 0,
+      cleanedEmptyTripsCount: 0,
+    };
+  }
+
+  const affectedTripIdSet = new Set<string>();
+  const missingPhotoIds: string[] = [];
+
+  for (const p of missingPhotos) {
+    missingPhotoIds.push(p.id);
+    if (p.trip_id) {
+      affectedTripIdSet.add(p.trip_id);
+    }
+  }
+
+  let cleanedEmptyTripsCount = 0;
+
+  await database.withTransactionAsync(async () => {
+    // 1. Delete missing photos in chunks (to respect SQLite parameter limits)
+    const CHUNK_SIZE = 400;
+    for (let i = 0; i < missingPhotoIds.length; i += CHUNK_SIZE) {
+      const chunk = missingPhotoIds.slice(i, i + CHUNK_SIZE);
+      const placeholders = chunk.map(() => '?').join(', ');
+      await database.runAsync(`DELETE FROM faces WHERE photo_id IN (${placeholders});`, chunk);
+      await database.runAsync(
+        `DELETE FROM person_photos_excluded WHERE photo_id IN (${placeholders});`,
+        chunk
+      );
+      await database.runAsync(`DELETE FROM photos WHERE id IN (${placeholders});`, chunk);
+    }
+
+    // 2. Recompute trips.photo_count and empty-trip cleanup in same transaction (Schema §5)
+    for (const tripId of affectedTripIdSet) {
+      const countRow = await database.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) as count FROM photos WHERE trip_id = ?;',
+        [tripId]
+      );
+      const remainingCount = countRow?.count ?? 0;
+
+      const tripRow = await database.getFirstAsync<{ is_user_edited: number }>(
+        'SELECT is_user_edited FROM trips WHERE id = ?;',
+        [tripId]
+      );
+
+      // If an auto-detected trip has 0 photos remaining, delete the trip (unless is_user_edited = 1)
+      if (remainingCount === 0 && tripRow && tripRow.is_user_edited === 0) {
+        await database.runAsync('DELETE FROM trips WHERE id = ?;', [tripId]);
+        cleanedEmptyTripsCount++;
+      } else {
+        await database.runAsync(
+          'UPDATE trips SET photo_count = ?, updated_at = ? WHERE id = ?;',
+          [remainingCount, Date.now(), tripId]
+        );
+      }
+    }
+  });
+
+  return {
+    deletedPhotosCount: missingPhotos.length,
+    affectedTripsCount: affectedTripIdSet.size,
+    cleanedEmptyTripsCount,
+  };
 }
 
 /**
@@ -274,6 +401,7 @@ export async function syncLibrary(
   let hasNextPage = true;
   let totalSynced = 0;
   let batchIndex = 0;
+  const allSyncedAssetIds: string[] = [];
 
   while (hasNextPage) {
     const assetsOptions: MediaLibrary.AssetsOptions = {
@@ -294,6 +422,10 @@ export async function syncLibrary(
 
     if (!pagedInfo || !pagedInfo.assets || pagedInfo.assets.length === 0) {
       break;
+    }
+
+    for (const a of pagedInfo.assets) {
+      allSyncedAssetIds.push(a.id);
     }
 
     const photoRows: PhotoRow[] = pagedInfo.assets.map((asset) => ({
@@ -329,11 +461,21 @@ export async function syncLibrary(
   // Update last_sync_at timestamp
   await setLastSyncAt(syncStartTime, database);
 
+  let reconciledDeletedCount = 0;
+  if (!isIncremental) {
+    const reconcileRes = await reconcileDeletedGalleryPhotos(allSyncedAssetIds, database);
+    reconciledDeletedCount = reconcileRes.deletedPhotosCount;
+  } else if (options.reconcileDeleted) {
+    const reconcileRes = await reconcileDeletedGalleryPhotos(undefined, database);
+    reconciledDeletedCount = reconcileRes.deletedPhotosCount;
+  }
+
   return {
     syncedCount: totalSynced,
     batchesCount: batchIndex,
     lastSyncAt: syncStartTime,
     isIncremental,
+    reconciledDeletedCount,
   };
 }
 

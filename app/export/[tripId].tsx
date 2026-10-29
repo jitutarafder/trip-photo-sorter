@@ -259,6 +259,7 @@ export default function ExportReviewScreen() {
     setQueueTotal(selectedPeople.length);
 
     let completedCount = 0;
+    let totalSkippedCount = 0;
     const currentQueue = [...selectedPeople];
 
     for (let i = 0; i < currentQueue.length; i++) {
@@ -275,6 +276,10 @@ export default function ExportReviewScreen() {
           mode: cfg.mode,
           soloOnly: cfg.soloOnly,
         });
+
+        if (result.skippedCount && result.skippedCount > 0) {
+          totalSkippedCount += result.skippedCount;
+        }
 
         if (result.status === 'cancelled') {
           // Share cancelled -> uncheck row (02_AppFlow §3.7)
@@ -308,11 +313,19 @@ export default function ExportReviewScreen() {
     }
 
     setIsQueueActive(false);
-    setFeedbackMessage(
+
+    let summary =
       completedCount > 0
         ? `Export complete! Shared ${completedCount} ${completedCount === 1 ? 'person' : 'people'}.`
-        : 'Export finished.'
-    );
+        : 'Export finished.';
+
+    if (totalSkippedCount > 0) {
+      summary += ` (${totalSkippedCount} missing or deleted ${
+        totalSkippedCount === 1 ? 'photo was' : 'photos were'
+      } skipped)`;
+    }
+
+    setFeedbackMessage(summary);
   };
 
   if (isLoading) {

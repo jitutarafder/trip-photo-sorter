@@ -357,6 +357,9 @@ class InMemoryEngine {
     if (/^photo_id\s*=\s*\?$/i.test(clause)) {
       return row.photo_id === params[0];
     }
+    if (/^photo_id\s+IN\s*\(/i.test(clause)) {
+      return params.includes(row.photo_id);
+    }
     if (/^person_id\s*=\s*\?$/i.test(clause)) {
       return row.person_id === params[0];
     }

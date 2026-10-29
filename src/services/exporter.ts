@@ -58,6 +58,7 @@ export interface ExportResult {
   exportId: string;
   mode: 'photos' | 'zip';
   photoCount: number;
+  skippedCount?: number;
   sizeBytes: number;
   status: ExportStatus;
   zipPath: null; // Per AGENTS.md, temp ZIPs are deleted on every exit path
@@ -291,6 +292,7 @@ export async function exportPerson(
   let zipPath: string | null = null;
   const stagedFiles: string[] = [];
   let totalBytes = 0;
+  let skippedCount = 0;
   let finalStatus: ExportStatus = 'failed';
 
   try {
@@ -308,6 +310,7 @@ export async function exportPerson(
       const photo = photos[i];
       const sourceUri = await resolveUri(photo);
       if (!sourceUri) {
+        skippedCount++;
         continue; // Skip iCloud-only or deleted asset
       }
 
@@ -329,6 +332,7 @@ export async function exportPerson(
         stagedFiles.push(targetPath);
         copiedCount++;
       } catch {
+        skippedCount++;
         // Individual copy failure is skipped silently per AppFlow §4
       }
     }
@@ -438,6 +442,7 @@ export async function exportPerson(
       exportId,
       mode,
       photoCount: copiedCount,
+      skippedCount,
       sizeBytes: totalBytes,
       status: finalStatus,
       zipPath: null, // Always NULL after exit cleanup
@@ -454,6 +459,7 @@ export async function exportPerson(
         exportId,
         mode,
         photoCount: stagedFiles.length,
+        skippedCount,
         sizeBytes: totalBytes,
         status: 'cancelled',
         zipPath: null,
