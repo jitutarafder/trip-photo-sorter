@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Patch TurboModule crash handlers
+        run: node scripts/patch-turbomodule.js
+
       - name: Prebuild iOS project
         run: npx expo prebuild --platform ios --clean
 

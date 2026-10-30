@@ -11,7 +11,8 @@
     "test": "jest --watchAll=false",
     "eval": "jest __tests__/evalHarness.test.ts --watchAll=false --verbose",
     "benchmark": "jest __tests__/benchmark.test.ts --watchAll=false --verbose",
-    "check": "tsc --noEmit && eslint . && jest --watchAll=false"
+    "check": "tsc --noEmit && eslint . && jest --watchAll=false",
+    "postinstall": "node scripts/patch-turbomodule.js"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
