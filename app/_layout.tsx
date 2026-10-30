@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Stack, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   useFonts,
   Inter_400Regular,
@@ -15,15 +16,6 @@ import { ThemeProvider, useTheme } from '../src/theme';
 import { ErrorBoundary, ErrorFallback } from '../src/components/ErrorBoundary';
 import { useOrphanSweep } from '../src/hooks/useOrphanSweep';
 import { reconcileInterruptedTripScans } from '../src/db/repositories/trips';
-
-// Prevent splash screen from auto-hiding until fonts are loaded
-try {
-  SplashScreen.preventAutoHideAsync().catch(() => {
-    /* ignore error in tests or unsupported environments */
-  });
-} catch {
-  /* ignore */
-}
 
 /**
  * Route-level ErrorBoundary for Expo Router (02_AppFlow §4).
@@ -191,13 +183,15 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <ErrorBoundary>
-          <RootNavigation />
-        </ErrorBoundary>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.container}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <ErrorBoundary>
+            <RootNavigation />
+          </ErrorBoundary>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

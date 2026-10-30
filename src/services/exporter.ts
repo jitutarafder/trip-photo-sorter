@@ -585,18 +585,20 @@ export async function sweepOrphanTempExports(
   // 2. Filesystem directory sweep
   try {
     const exportsDir = getExportsDirectory();
-    const dirInfo = await LegacyFileSystem.getInfoAsync(exportsDir);
-    if (dirInfo.exists && dirInfo.isDirectory) {
-      const items = await LegacyFileSystem.readDirectoryAsync(exportsDir);
-      for (const item of items) {
-        const itemPath = `${exportsDir}${item}`;
-        try {
-          await LegacyFileSystem.deleteAsync(itemPath, { idempotent: true });
-          result.deletedFilesCount++;
-        } catch (itemErr) {
-          result.errors.push(
-            `Failed to remove orphaned export item ${itemPath}: ${itemErr instanceof Error ? itemErr.message : String(itemErr)}`
-          );
+    if (exportsDir && exportsDir !== 'exports/' && exportsDir !== '/exports/') {
+      const dirInfo = await LegacyFileSystem.getInfoAsync(exportsDir);
+      if (dirInfo.exists && dirInfo.isDirectory) {
+        const items = await LegacyFileSystem.readDirectoryAsync(exportsDir);
+        for (const item of items) {
+          const itemPath = `${exportsDir}${item}`;
+          try {
+            await LegacyFileSystem.deleteAsync(itemPath, { idempotent: true });
+            result.deletedFilesCount++;
+          } catch (itemErr) {
+            result.errors.push(
+              `Failed to remove orphaned export item ${itemPath}: ${itemErr instanceof Error ? itemErr.message : String(itemErr)}`
+            );
+          }
         }
       }
     }
