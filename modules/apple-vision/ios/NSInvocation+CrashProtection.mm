@@ -1,17 +1,17 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
+#include <exception>
 
 /**
- * TurboModuleCrashProtection
+ * TurboModuleCrashProtection (Objective-C++)
  *
- * Intercepts uncaught NSExceptions inside NSInvocation's invoke and invokeWithTarget:.
+ * Intercepts uncaught exceptions inside NSInvocation's invoke and invokeWithTarget:.
  * React Native's ObjCTurboModule::performVoidMethodInvocation dispatches async void
- * method invocations onto a GCD queue without a C++ catch handler. If an invoked
- * Objective-C method throws an NSException, React Native catches it and rethrows a C++
- * exception into GCD, which immediately triggers std::terminate() and abort() (SIGABRT).
+ * method invocations onto a GCD queue without an outer C++ catch handler. If an invoked
+ * method throws an NSException or C++ exception, it triggers std::terminate() and abort() (SIGABRT).
  *
- * By catching the NSException inside invokeWithTarget:, the exception does not escape,
- * preventing the fatal C++ rethrow and keeping the app running smoothly.
+ * By catching both NSException and std::exception inside invokeWithTarget: and invoke,
+ * no exception escapes to GCD, preventing the abort trap and keeping the app running smoothly.
  */
 
 @interface TurboModuleCrashGuard : NSObject
@@ -20,7 +20,6 @@
 
 @implementation TurboModuleCrashGuard
 + (void)install {
-    // Calling this forces dyld and the static linker to retain this translation unit.
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         NSLog(@"[TurboModuleCrashGuard] Crash protection initialized.");
@@ -61,6 +60,12 @@
     } @catch (NSException *exception) {
         NSLog(@"[TURBOMODULE CRASH PREVENTED] Target: %@, Selector: %@, Reason: %@",
               target, NSStringFromSelector(self.selector), exception.reason);
+    } catch (const std::exception &e) {
+        NSLog(@"[TURBOMODULE STD::EXCEPTION PREVENTED] Target: %@, Selector: %@, Reason: %s",
+              target, NSStringFromSelector(self.selector), e.what());
+    } catch (...) {
+        NSLog(@"[TURBOMODULE UNKNOWN EXCEPTION PREVENTED] Target: %@, Selector: %@",
+              target, NSStringFromSelector(self.selector));
     }
 }
 
@@ -70,6 +75,12 @@
     } @catch (NSException *exception) {
         NSLog(@"[TURBOMODULE CRASH PREVENTED] Target: %@, Selector: %@, Reason: %@",
               self.target, NSStringFromSelector(self.selector), exception.reason);
+    } catch (const std::exception &e) {
+        NSLog(@"[TURBOMODULE STD::EXCEPTION PREVENTED] Target: %@, Selector: %@, Reason: %s",
+              self.target, NSStringFromSelector(self.selector), e.what());
+    } catch (...) {
+        NSLog(@"[TURBOMODULE UNKNOWN EXCEPTION PREVENTED] Target: %@, Selector: %@",
+              self.target, NSStringFromSelector(self.selector));
     }
 }
 

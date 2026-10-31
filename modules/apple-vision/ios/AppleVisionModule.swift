@@ -20,9 +20,7 @@ public class AppleVisionModule: Module {
     }
 
     OnCreate {
-      if let guardClass = NSClassFromString("TurboModuleCrashGuard") as? AnyObject {
-        _ = guardClass.perform(NSSelectorFromString("install"))
-      }
+      _ = (NSClassFromString("TurboModuleCrashGuard") as AnyObject?)?.perform(NSSelectorFromString("install"))
     }
   }
 
