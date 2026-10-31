@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
   s.platforms      = { :ios => '16.0' }
   s.swift_version  = '5.4'
   s.source         = { git: '' }
-  s.source_files   = '**/*.{h,m,swift}'
+  s.source_files   = '**/*.{h,m,mm,swift}'
   s.dependency 'ExpoModulesCore'
   s.frameworks     = 'Vision', 'UIKit', 'Photos'
 end

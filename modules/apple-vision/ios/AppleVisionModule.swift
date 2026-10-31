@@ -18,6 +18,12 @@ public class AppleVisionModule: Module {
     AsyncFunction("isExcludedFromBackup") { (filePath: String) -> Bool in
       return self.isExcludedFromBackup(path: filePath)
     }
+
+    OnCreate {
+      if let guardClass = NSClassFromString("TurboModuleCrashGuard") as? AnyObject {
+        _ = guardClass.perform(NSSelectorFromString("install"))
+      }
+    }
   }
 
   private func detectFacesInUri(_ imageUri: String) -> [[String: Any]] {
