@@ -298,6 +298,27 @@ export async function defaultDetectFaces(
   }));
 }
 
+let cachedMobileFaceNetModel: ModelRunner | null = null;
+
+/**
+ * Returns or dynamically loads the MobileFaceNet model via react-native-fast-tflite.
+ */
+export async function getOrLoadMobileFaceNetModel(): Promise<ModelRunner | null> {
+  if (cachedMobileFaceNetModel) {
+    return cachedMobileFaceNetModel;
+  }
+  try {
+    const { loadTensorflowModel } = await import('react-native-fast-tflite');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const modelAsset = require('../../assets/models/mobilefacenet.tflite');
+    cachedMobileFaceNetModel = (await loadTensorflowModel(modelAsset, [])) as ModelRunner;
+    return cachedMobileFaceNetModel;
+  } catch (err) {
+    console.warn('[faceScan] Error loading MobileFaceNet model automatically:', err);
+    return null;
+  }
+}
+
 /**
  * Default face embedding logic:
  * Runs MobileFaceNet 112x112 model and returns 128-d L2-normalized vector.
@@ -307,7 +328,11 @@ export async function defaultComputeEmbedding(
   base64Crop: string | undefined,
   mobilefacenetModel?: ModelRunner
 ): Promise<Float32Array> {
-  if (!mobilefacenetModel) {
+  let model = mobilefacenetModel;
+  if (!model) {
+    model = (await getOrLoadMobileFaceNetModel()) ?? undefined;
+  }
+  if (!model) {
     throw new Error('MobileFaceNet model is required to compute face embeddings');
   }
 
@@ -344,7 +369,7 @@ export async function defaultComputeEmbedding(
     throw new Error('Failed to construct RGB tensor from face crop');
   }
 
-  const mfnOutput = await mobilefacenetModel.run([mfnInput.buffer as ArrayBuffer]);
+  const mfnOutput = await model.run([mfnInput.buffer as ArrayBuffer]);
   const rawEmbedding = new Float32Array(mfnOutput[0]);
   return l2Normalize(rawEmbedding);
 }
@@ -369,6 +394,7 @@ export async function scanTripFaces(
   const keepAwake = options.keepAwake ?? true;
   const controller = options.controller ?? new ScanController();
   const uriResolver = options.photoUriResolver ?? defaultPhotoUriResolver;
+  const autoCluster = options.autoCluster ?? true;
 
   // 1. Verify trip exists
   const trip = await getTripById(tripId, database);
@@ -385,7 +411,7 @@ export async function scanTripFaces(
 
   if (totalPhotos === 0) {
     // If all photos were already done, cluster if autoCluster is enabled, or mark trip as scanned
-    if (options.autoCluster) {
+    if (autoCluster) {
       await clusterAndPersistTripFaces(tripId, undefined, database);
     } else {
       await updateTrip(tripId, { scan_status: 'scanned' }, database);
@@ -660,7 +686,7 @@ export async function scanTripFaces(
       await updateTrip(tripId, { scan_status: 'paused' }, database);
     } else {
       // Completed all pending photos
-      if (options.autoCluster) {
+      if (autoCluster) {
         await clusterAndPersistTripFaces(tripId, undefined, database);
       } else {
         await updateTrip(tripId, { scan_status: 'scanned' }, database);

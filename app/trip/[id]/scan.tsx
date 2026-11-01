@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,6 +8,7 @@ import {
   type AppStateStatus,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useTensorflowModel } from 'react-native-fast-tflite';
 import {
   Sparkles,
   Users,
@@ -27,6 +28,7 @@ import { useLibraryPermission } from '../../../src/hooks/useLibraryPermission';
 const DEFAULT_SCAN_OPTIONS = {
   keepAwake: true,
   pauseOnBackground: true,
+  autoCluster: true,
 };
 
 /**
@@ -58,6 +60,21 @@ export default function ScanProgressModal() {
   // Timing for ETA calculation
   const scanStartTimeRef = useRef<number | null>(null);
 
+  // Load MobileFaceNet model via fast-tflite
+  const mobilefacenet = useTensorflowModel(
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../../assets/models/mobilefacenet.tflite'),
+    []
+  );
+
+  const scanOptions = useMemo(
+    () => ({
+      ...DEFAULT_SCAN_OPTIONS,
+      mobilefacenetModel: mobilefacenet.model ?? undefined,
+    }),
+    [mobilefacenet.model]
+  );
+
   const {
     isScanning,
     isPaused,
@@ -66,7 +83,7 @@ export default function ScanProgressModal() {
     startScan,
     resumeScan,
     cancelScan,
-  } = useFaceScan(id ?? '', DEFAULT_SCAN_OPTIONS);
+  } = useFaceScan(id ?? '', scanOptions);
 
   const { status: permissionStatus, openSettings } = useLibraryPermission();
   const isPermissionRevoked =
@@ -163,7 +180,7 @@ export default function ScanProgressModal() {
   // Initial load: fetch trip and kick off scan if not yet scanned or resumed
   useEffect(() => {
     let isMounted = true;
-    if (!id || hasStartedRef.current) return;
+    if (!id || hasStartedRef.current || mobilefacenet.state === 'loading') return;
     hasStartedRef.current = true;
 
     getTripById(id)
@@ -188,7 +205,7 @@ export default function ScanProgressModal() {
     return () => {
       isMounted = false;
     };
-  }, [id, handleExecuteScan, router]);
+  }, [id, handleExecuteScan, router, mobilefacenet.state]);
 
   // Monitor scan stages (scanning vs clustering)
   useEffect(() => {
@@ -230,7 +247,7 @@ export default function ScanProgressModal() {
   const progressPercent = Math.round(progressRatio * 100);
 
   // Render: Initial loading
-  if (initialLoading) {
+  if (initialLoading || mobilefacenet.state === 'loading') {
     return (
       <View
         testID="scan-initial-loading"
@@ -244,7 +261,7 @@ export default function ScanProgressModal() {
             { color: colors.textMuted, fontSize: tokens.typography.body.fontSize },
           ]}
         >
-          Preparing scan...
+          {mobilefacenet.state === 'loading' ? 'Loading AI face model...' : 'Preparing scan...'}
         </Text>
       </View>
     );

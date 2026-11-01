@@ -6,5 +6,6 @@ module.exports = {
   moduleNameMapper: {
     '^lucide-react-native$': '<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js',
     '^react-native-svg$': '<rootDir>/__mocks__/react-native-svg.tsx',
+    '\\.tflite$': '<rootDir>/__mocks__/tfliteMock.js',
   },
 };

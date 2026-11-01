@@ -14,6 +14,14 @@ if (typeof global !== 'undefined') {
       } catch {
         // ignore alert errors
       }
+      try {
+        // Dismiss splash screen on error so alert is visible
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const SplashScreen = require('expo-splash-screen');
+        SplashScreen.hideAsync?.().catch?.(() => {});
+      } catch {
+        // ignore splash hide errors
+      }
       // Pass isFatal: false so ExceptionsManager calls reportSoftException instead of reportFatalException!
       if (originalHandler) {
         try {
