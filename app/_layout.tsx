@@ -1,7 +1,8 @@
 
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Stack, SplashScreen } from 'expo-router';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -148,16 +149,11 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
-  const [fontTimeout, setFontTimeout] = React.useState(false);
 
-  // Safety fallback: if fonts take longer than 2.5s, don't block app launch
+  // Always hide splash screen as soon as RootLayout mounts, or when fonts resolve
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setFontTimeout(true);
-      SplashScreen.hideAsync().catch(() => {});
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, []);
+    SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded, fontError]);
 
   // Launch-time orphan export sweep (04_TRD §6, 05_Schema §4)
   useOrphanSweep();
@@ -168,19 +164,6 @@ export default function RootLayout() {
       console.warn('[RootLayout] Error reconciling interrupted trip scans on launch:', err);
     });
   }, []);
-
-  useEffect(() => {
-    if (fontsLoaded || fontError || fontTimeout) {
-      SplashScreen.hideAsync().catch(() => {
-        /* ignore */
-      });
-    }
-  }, [fontsLoaded, fontError, fontTimeout]);
-
-  // Keep splash screen visible until fonts are loaded (unless font loading failed or timed out)
-  if (!fontsLoaded && !fontError && !fontTimeout) {
-    return null;
-  }
 
   return (
     <GestureHandlerRootView style={styles.container}>

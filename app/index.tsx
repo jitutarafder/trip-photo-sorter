@@ -38,7 +38,7 @@ export default function HomeScreen() {
   const { colors, tokens } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { status, isLoading: isPermissionLoading, presentPicker } = useLibraryPermission();
+  const { status, presentPicker } = useLibraryPermission();
 
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,9 +48,11 @@ export default function HomeScreen() {
 
   // 1. Initial Onboarding & Permission Check
   useEffect(() => {
+    let isMounted = true;
     async function checkState() {
       try {
         const onboarded = await isOnboarded();
+        if (!isMounted) return;
 
         if (!onboarded || status === 'denied') {
           router.replace('/onboarding');
@@ -58,17 +60,21 @@ export default function HomeScreen() {
         }
       } catch {
         // If DB fails to read or is fresh, safely redirect to onboarding
+        if (!isMounted) return;
         router.replace('/onboarding');
         return;
       } finally {
-        setCheckingOnboarding(false);
+        if (isMounted) {
+          setCheckingOnboarding(false);
+        }
       }
     }
 
-    if (!isPermissionLoading) {
-      checkState();
-    }
-  }, [router, status, isPermissionLoading]);
+    checkState();
+    return () => {
+      isMounted = false;
+    };
+  }, [router, status]);
 
   // 2. Fetch Trips from Local SQLite
   const loadTripsFromDb = useCallback(async (): Promise<TripRow[]> => {
