@@ -7,6 +7,7 @@ import {
   Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Sparkles,
@@ -243,6 +244,11 @@ export default function OnboardingScreen() {
   } = useLibraryPermission();
 
   const [isRequesting, setIsRequesting] = useState<boolean>(false);
+
+  // Ensure splash screen is hidden when Onboarding mounts
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   // When permission is granted or limited, mark onboarded and navigate to home
   useEffect(() => {

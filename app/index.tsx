@@ -6,6 +6,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Settings, Compass, AlertCircle } from 'lucide-react-native';
@@ -45,6 +46,11 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [trips, setTrips] = useState<TripRow[]>([]);
+
+  // Safety: dismiss splash screen on Home mount
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   // 1. Initial Onboarding & Permission Check
   useEffect(() => {
