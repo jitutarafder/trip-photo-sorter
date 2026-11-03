@@ -151,7 +151,6 @@ if (fs.existsSync(splashManagerFile)) {
 #if RCT_NEW_ARCH_ENABLED
       if let hostView = self.rootView as? RCTSurfaceHostingProxyRootView {
         hostView.disableActivityIndicatorAutoHide(false)
-        hostView.loadingView = nil
       }
 #endif
       guard self.isLoadingViewVisible() else {
@@ -169,4 +168,3 @@ if (fs.existsSync(splashManagerFile)) {
 }
 
 console.log('[patch-turbomodule] All patches completed.');
-
