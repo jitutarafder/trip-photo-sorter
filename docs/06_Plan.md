@@ -142,6 +142,7 @@ Goal: prove the face pipeline works on the real iPhone with real photos. No DB, 
 2026-10-29 | 4.10 | Verified complete reset data to clean state: wiped all database tables (trips, photos, people, faces, exclusions, exports, settings), re-applied migrations, swept exports directory, cleared face thumbnail caches, verified settings alert confirmation and home launch redirect to /onboarding, with 8 tests in __tests__/edgeCaseResetDataCleanState.test.tsx
 2026-11-01 | CHECKPOINT | Resolved New Architecture splash screen freeze on iOS: patched expo-splash-screen (SplashScreenManager.swift) to prevent RCTSurfaceHostingProxyRootView loadingView retention loop, added native 2.0s auto-dismiss fail-safe in showSplashScreen, added SplashScreen.preventAutoHideAsync() at module level in app/_layout.tsx, and guaranteed hideAsync calls on root layout, home, and onboarding mounts
 2026-11-01 | CHECKPOINT | Pinned macos-14 runner and explicit Xcode 16.0 / 15.4 selection in .github/workflows/ios-build.yml, configured expo-splash-screen config plugin in app.json, and removed module-level preventAutoHideAsync to enable natural native auto-dismiss on RCTContentDidAppearNotification
+2026-11-03 | CHECKPOINT | Patched SplashScreenManager.swift in scripts/patch-turbomodule.js: replaced non-nullable hostView.loadingView = nil with hidden zero-frame UIView to resolve Swift compiler error 65
 
 
 

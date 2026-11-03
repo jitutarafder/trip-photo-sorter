@@ -151,7 +151,9 @@ if (fs.existsSync(splashManagerFile)) {
 #if RCT_NEW_ARCH_ENABLED
       if let hostView = self.rootView as? RCTSurfaceHostingProxyRootView {
         hostView.disableActivityIndicatorAutoHide(false)
-        hostView.loadingView = nil
+        let emptyView = UIView(frame: .zero)
+        emptyView.isHidden = true
+        hostView.loadingView = emptyView
       }
 #endif
       guard self.isLoadingViewVisible() else {
