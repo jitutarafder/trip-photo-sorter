@@ -18,8 +18,8 @@ import { ErrorBoundary, ErrorFallback } from '../src/components/ErrorBoundary';
 import { useOrphanSweep } from '../src/hooks/useOrphanSweep';
 import { reconcileInterruptedTripScans } from '../src/db/repositories/trips';
 
-// Keep native splash screen active until React tree mounts
-SplashScreen.preventAutoHideAsync().catch(() => {});
+// Native splash screen will auto-hide when RCTContentDidAppearNotification fires.
+// hideAsync() in RootLayout acts as an explicit fallback.
 
 /**
  * Route-level ErrorBoundary for Expo Router (02_AppFlow §4).
